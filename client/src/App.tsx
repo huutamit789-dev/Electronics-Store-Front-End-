@@ -1,12 +1,12 @@
 // App.tsx
 import { AppRoutes } from '@/routes/AppRoutes';
-import { MainLayout } from '@/components/layout/MainLayout';
-
+import { Toaster } from 'react-hot-toast';
 function App() {
   return (
-    <MainLayout>
+   <div className="app h-full w-full bg-gray-100 dark:bg-gray-900">
       <AppRoutes />
-    </MainLayout>
+      <Toaster position="top-right" reverseOrder={false} />
+    </div>
   );
 }
 
