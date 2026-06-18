@@ -1,6 +1,6 @@
-import { Layout, Input, Flex, Typography } from 'antd';
-
-const { Header } = Layout;
+import { Header } from 'antd/es/layout/layout';
+import { Flex, Input, Typography } from 'antd';
+import { Link } from 'react-router-dom';
 
 export const CustomHeader = () => (
   <Header style={{ backgroundColor: '#d70018', height: 'auto', padding: '10px 50px' }}>
@@ -15,7 +15,7 @@ export const CustomHeader = () => (
       />
       <Flex gap={15} style={{ color: 'white' }}>
         <span>Giỏ hàng</span>
-        <span>Đăng nhập</span>
+        <Link to="/login" style={{ color: 'white' }}>Đăng nhập</Link>
       </Flex>
     </Flex>
   </Header>

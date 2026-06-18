@@ -33,7 +33,7 @@ export const LoginForm = () => {
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md mx-auto shadow-2xl border-none rounded-3xl p-6 sm:p-8"  style={{ maxWidth: '400px', margin: '0 auto' }}>
+      <Card className="w-full max-w-md mx-auto shadow-2xl border-none rounded-3xl p-6 sm:p-8"  style={{ maxWidth: '400px' }}>
         <div className="text-center mb-6">
           <Typography.Title level={2} style={{ marginBottom: '0.5rem', fontWeight: 'bold' }}>
             Đăng nhập
