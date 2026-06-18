@@ -2,7 +2,6 @@ import React from 'react';
 import ReactDOM from 'react-dom/client';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import '@fortawesome/fontawesome-free/css/all.min.css';
-import './assets/startbootstrap-sb-admin-2-gh-pages/css/sb-admin-2.min.css';
 import '@fortawesome/fontawesome-free/js/all.min.js';
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
