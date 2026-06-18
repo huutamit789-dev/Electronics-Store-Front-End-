@@ -1,44 +1,38 @@
-import { Card, Col, Row, Typography } from 'antd';
+import React from 'react';
+import { Link } from 'react-router-dom'; // Import Link
 import { Product } from '@/types/product';
-
-const { Meta } = Card;
 
 interface ProductListProps {
   products: Product[];
 }
 
 export const ProductList = ({ products }: ProductListProps) => {
-  // Không còn sử dụng useProducts hook ở đây nữa, dữ liệu được truyền từ props
-
   if (!products || products.length === 0) {
     return (
-      <div className="p-4 text-center">
-        <Typography.Text>Không có sản phẩm nào để hiển thị.</Typography.Text>
+      <div className="p-3 text-center text-secondary">
+        <p>Không có sản phẩm nào để hiển thị.</p>
       </div>
     );
   }
 
   return (
-    <div className="p-4">
-      <Typography.Title level={2} className="mb-6 text-center">
-        Sản phẩm nổi bật
-      </Typography.Title>
-      <Row gutter={[16, 16]}>
+    <div className="mt-4">
+      <div className="row row-cols-2 row-cols-sm-3 row-cols-lg-5 g-3">
         {products.map((product: Product) => (
-          <Col key={product._id} xs={24} sm={12} md={8} lg={6}>
-            <Card
-              hoverable
-              cover={<img alt={product.name} src={product.image_url} className="h-48 object-cover" />}
-              className="rounded-lg shadow-md"
-            >
-              <Meta
-                title={product.name}
-                description={`${product.price.toLocaleString()} VNĐ`}
-              />
-            </Card>
-          </Col>
+          <div key={product._id} className="col">
+            {/* Bọc toàn bộ card trong Link */}
+            <Link to={`/product/${product._id}`} className="text-decoration-none text-dark">
+              <div className="card h-100 shadow-sm border border-light rounded-3 hover-shadow-lg transition-shadow">
+                <img src={product.image_url} alt={product.name} className="card-img-top p-3" style={{ height: '160px', objectFit: 'contain' }} />
+                <div className="card-body d-flex flex-column">
+                  <h5 className="card-title fs-6 fw-semibold mb-2 text-truncate" style={{ height: '2.5em' }}>{product.name}</h5>
+                  <div className="mt-auto text-danger fw-bold fs-5">{product.price.toLocaleString()}₫</div>
+                </div>
+              </div>
+            </Link>
+          </div>
         ))}
-      </Row>
+      </div>
     </div>
   );
 };
