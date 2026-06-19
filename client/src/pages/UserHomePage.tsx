@@ -59,7 +59,9 @@ export const UserHomePage: React.FC = () => {
   // Sử dụng useAuthStore thay vì state riêng
   const { isLoggedIn, user } = useAuthStore();
   const { logout } = useLogout();
-  const { addItem, getTotalItems } = useCartStore();
+  const { addItem } = useCartStore();
+  const cartItems = useCartStore((state) => state.items);
+  const totalItems = cartItems.reduce((total, item) => total + item.quantity, 0);
   const [role, setRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
@@ -256,7 +258,15 @@ export const UserHomePage: React.FC = () => {
           <div className="d-flex justify-content-between align-items-center w-100">
             <Link className="navbar-brand fw-bold fs-3 text-danger" to="/">Electro<span className="text-dark">Store</span></Link>
             <div className="d-flex gap-3">
-              <Link to="/cart" className="text-dark"><i className="bi bi-cart3 fs-4"></i></Link>
+              <Link to="/cart" className="text-dark position-relative">
+                <i className="bi bi-cart3 fs-4"></i>
+                {totalItems > 0 && (
+                  <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    {totalItems}
+                    <span className="visually-hidden">sản phẩm trong giỏ hàng</span>
+                  </span>
+                )}
+              </Link>
               {isLoggedIn ? (
                 <div className="dropdown">
                   <a className="nav-link dropdown-toggle text-dark d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">

@@ -3,6 +3,9 @@ import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
 import { CustomHeader } from '@/components/layout/Header'; // Sử dụng CustomHeader đã refactor sang Bootstrap
 import { Product } from '@/types/product'; // Import kiểu Product
+import { useCartStore } from '@/store/useCartStore';
+import { CartItem } from '@/types/order';
+import toast from 'react-hot-toast';
 
 // Định nghĩa kiểu dữ liệu cho Product Detail API Response
 interface ProductDetailApiResponse {
@@ -47,6 +50,20 @@ export const ProductDetailPage: React.FC = () => { // Đã xóa ({product}: Prod
   const [categories, setCategories] = useState<Category[]>([]); // Thêm state cho categories
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const addItem = useCartStore((state) => state.addItem);
+
+  const handleAddToCart = () => {
+    if (!product) return;
+    const cartItem: CartItem = {
+      productId: product._id,
+      productName: product.name,
+      price: product.price,
+      quantity: 1,
+      image_url: product.image_url,
+    };
+    addItem(cartItem);
+    toast.success(`Đã thêm ${product.name} vào giỏ hàng!`);
+  };
 
   useEffect(() => {
     // Inject custom styles
@@ -174,7 +191,7 @@ export const ProductDetailPage: React.FC = () => { // Đã xóa ({product}: Prod
 
             {/* Action Buttons */}
             <div className="d-grid gap-2 mt-4">
-              <button className="btn btn-cps btn-lg">
+              <button className="btn btn-cps btn-lg" onClick={handleAddToCart}>
                 <i className="fas fa-shopping-cart me-2"></i> Thêm vào giỏ hàng
               </button>
               <button className="btn btn-outline-danger btn-lg">
@@ -189,7 +206,7 @@ export const ProductDetailPage: React.FC = () => { // Đã xóa ({product}: Prod
       <div className="sticky-action-bar d-md-none">
         <div className="container d-flex gap-2">
           <button className="btn btn-outline-danger flex-grow-1">Gọi tư vấn</button>
-          <button className="btn btn-cps flex-grow-1">Mua ngay</button>
+          <button className="btn btn-cps flex-grow-1" onClick={handleAddToCart}>Mua ngay</button>
         </div>
       </div>
     </div>
