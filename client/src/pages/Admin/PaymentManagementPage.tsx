@@ -29,28 +29,44 @@ export const PaymentManagementPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchPayments = async () => {
-      try {
-        setLoading(true);
-        // Endpoint: GET /api/payments
-        const response = await axios.get<PaymentApiResponse>('http://localhost:8090/api/payments');
-        setPayments(response.data.data || []);
-        console.log('Fetched payments:', response.data.data);
-      } catch (err) {
-        console.error('Error fetching payments:', err);
-        setError('Failed to load payments. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // States cho Modal
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
 
+  // States cho dữ liệu
+  const [currentPayment, setCurrentPayment] = useState<Payment>({
+    _id: '',
+    order_id: '',
+    user_id: '',
+    amount: 0,
+    payment_method: '',
+    status: 'pending',
+    transaction_id: '',
+    created_at: ''
+  });
+
+  useEffect(() => {
     fetchPayments();
   }, []);
 
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get<PaymentApiResponse>('http://localhost:8090/api/payments');
+      setPayments(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching payments:', err);
+      setError('Failed to load payments. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleViewPayment = (paymentId: string) => {
-    console.log('Event: View payment button clicked for payment ID:', paymentId);
-    // Logic để xem chi tiết thanh toán
+    const payment = payments.find(p => p._id === paymentId);
+    if (payment) {
+      setCurrentPayment(payment);
+      setIsViewModalOpen(true);
+    }
   };
 
   const getStatusBadgeClass = (status: Payment['status']) => {
@@ -131,6 +147,28 @@ export const PaymentManagementPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* MODAL XEM CHI TIẾT */}
+      {isViewModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Chi tiết thanh toán</h5></div>
+            <div className="modal-body">
+              <p><strong>ID Thanh toán:</strong> {currentPayment._id}</p>
+              <p><strong>ID Đơn hàng:</strong> {currentPayment.order_id}</p>
+              <p><strong>ID Người dùng:</strong> {currentPayment.user_id}</p>
+              <p><strong>Số tiền:</strong> {currentPayment.amount.toLocaleString()} VNĐ</p>
+              <p><strong>Phương thức:</strong> {currentPayment.payment_method}</p>
+              <p><strong>Trạng thái:</strong> {currentPayment.status.toUpperCase()}</p>
+              {currentPayment.transaction_id && <p><strong>ID Giao dịch:</strong> {currentPayment.transaction_id}</p>}
+              <p><strong>Ngày tạo:</strong> {new Date(currentPayment.created_at).toLocaleString()}</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsViewModalOpen(false)}>Đóng</button>
+            </div>
+          </div></div>
+        </div>
+      )}
     </>
   );
 };

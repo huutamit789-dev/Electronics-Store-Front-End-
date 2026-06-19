@@ -35,38 +35,84 @@ export const OrderManagementPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchOrders = async () => {
-      try {
-        setLoading(true);
-        // Endpoint: GET /api/orders
-        const response = await axios.get<OrderApiResponse>('http://localhost:8090/api/orders');
-        setOrders(response.data.data || []);
-        console.log('Fetched orders:', response.data.data);
-      } catch (err) {
-        console.error('Error fetching orders:', err);
-        setError('Failed to load orders. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // States cho các Modal
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  // States cho dữ liệu
+  const [currentOrder, setCurrentOrder] = useState<Order>({
+    _id: '',
+    user_id: '',
+    products: [],
+    total_amount: 0,
+    status: 'pending',
+    created_at: ''
+  });
+  const [newStatus, setNewStatus] = useState<Order['status']>('pending');
+
+  useEffect(() => {
     fetchOrders();
   }, []);
 
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get<OrderApiResponse>('http://localhost:8090/api/orders');
+      setOrders(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching orders:', err);
+      setError('Failed to load orders. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleViewOrder = (orderId: string) => {
-    console.log('Event: View order button clicked for order ID:', orderId);
-    // Logic để xem chi tiết đơn hàng
+    const order = orders.find(o => o._id === orderId);
+    if (order) {
+      setCurrentOrder(order);
+      setIsViewModalOpen(true);
+    }
   };
 
   const handleUpdateStatus = (orderId: string) => {
-    console.log('Event: Update status button clicked for order ID:', orderId);
-    // Logic để mở modal/form cập nhật trạng thái
+    const order = orders.find(o => o._id === orderId);
+    if (order) {
+      setCurrentOrder(order);
+      setNewStatus(order.status);
+      setIsStatusModalOpen(true);
+    }
   };
 
-  const handleDeleteOrder = (orderId: string) => {
-    console.log('Event: Delete order button clicked for order ID:', orderId);
-    // Logic để xác nhận và xóa đơn hàng
+  const handleStatusUpdate = async () => {
+    try {
+      await axios.put(`http://localhost:8090/api/orders/${currentOrder._id}/status`, { status: newStatus });
+      setIsStatusModalOpen(false);
+      fetchOrders();
+    } catch (err) {
+      console.error('Lỗi khi cập nhật trạng thái:', err);
+      alert('Cập nhật trạng thái thất bại!');
+    }
+  };
+
+  const confirmDeleteOrder = (orderId: string) => {
+    const order = orders.find(o => o._id === orderId);
+    if (order) {
+      setCurrentOrder(order);
+      setIsDeleteModalOpen(true);
+    }
+  };
+
+  const handleDeleteOrder = async () => {
+    try {
+      await axios.delete(`http://localhost:8090/api/orders/${currentOrder._id}`);
+      setIsDeleteModalOpen(false);
+      fetchOrders();
+    } catch (err) {
+      console.error('Lỗi khi xóa đơn hàng:', err);
+      alert('Xóa đơn hàng thất bại!');
+    }
   };
 
   const getStatusBadgeClass = (status: Order['status']) => {
@@ -140,7 +186,7 @@ export const OrderManagementPage: React.FC = () => {
                       <button type="button" className="btn btn-warning btn-sm me-2" onClick={() => handleUpdateStatus(order._id)}>
                         <i className="fas fa-edit"></i> Cập nhật TT
                       </button>
-                      <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDeleteOrder(order._id)}>
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => confirmDeleteOrder(order._id)}>
                         <i className="fas fa-trash"></i> Xóa
                       </button>
                     </td>
@@ -151,6 +197,82 @@ export const OrderManagementPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* MODAL XEM CHI TIẾT */}
+      {isViewModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-lg"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Chi tiết đơn hàng</h5></div>
+            <div className="modal-body">
+              <p><strong>ID:</strong> {currentOrder._id}</p>
+              <p><strong>ID Người dùng:</strong> {currentOrder.user_id}</p>
+              <p><strong>Tổng tiền:</strong> {currentOrder.total_amount.toLocaleString()} VNĐ</p>
+              <p><strong>Trạng thái:</strong> {currentOrder.status.toUpperCase()}</p>
+              <p><strong>Ngày đặt:</strong> {new Date(currentOrder.created_at).toLocaleString()}</p>
+              <h6 className="mt-3">Sản phẩm:</h6>
+              <table className="table table-sm">
+                <thead>
+                  <tr>
+                    <th>Tên sản phẩm</th>
+                    <th>Số lượng</th>
+                    <th>Giá</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {currentOrder.products.map((product, index) => (
+                    <tr key={index}>
+                      <td>{product.name}</td>
+                      <td>{product.quantity}</td>
+                      <td>{product.price.toLocaleString()} VNĐ</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsViewModalOpen(false)}>Đóng</button>
+            </div>
+          </div></div>
+        </div>
+      )}
+
+      {/* MODAL CẬP NHẬT TRẠNG THÁI */}
+      {isStatusModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Cập nhật trạng thái</h5></div>
+            <div className="modal-body">
+              <p><strong>ID Đơn hàng:</strong> {currentOrder._id}</p>
+              <p><strong>Trạng thái hiện tại:</strong> {currentOrder.status.toUpperCase()}</p>
+              <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value as Order['status'])}>
+                <option value="pending">Pending</option>
+                <option value="processing">Processing</option>
+                <option value="shipped">Shipped</option>
+                <option value="delivered">Delivered</option>
+                <option value="cancelled">Cancelled</option>
+              </select>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsStatusModalOpen(false)}>Hủy</button>
+              <button className="btn btn-primary" onClick={handleStatusUpdate}>Cập nhật</button>
+            </div>
+          </div></div>
+        </div>
+      )}
+
+      {/* MODAL XÓA */}
+      {isDeleteModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Xác nhận xóa</h5></div>
+            <div className="modal-body">Bạn có chắc chắn muốn xóa đơn hàng <strong>{currentOrder._id}</strong> không?</div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)}>Hủy</button>
+              <button className="btn btn-danger" onClick={handleDeleteOrder}>Xóa</button>
+            </div>
+          </div></div>
+        </div>
+      )}
     </>
   );
 };

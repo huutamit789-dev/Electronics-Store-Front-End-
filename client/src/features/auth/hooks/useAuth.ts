@@ -3,25 +3,57 @@ import { authService } from '../services/authService';
 import { useAuthStore } from '@/store/useAuthStore';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
+import { jwtDecode } from 'jwt-decode';
+
+interface DecodedToken {
+  role?: string;
+  user?: {
+    role?: string;
+  };
+}
 
 export const useLogin = () => {
   const setIsLoggedIn = useAuthStore((state) => state.setIsLoggedIn);
+  const setUser = useAuthStore((state) => state.setUser);
   const navigate = useNavigate();
 
   return useMutation({
     mutationFn: authService.login,
-    onSuccess: (data, variables, context) => { // Thêm context để truy cập onSuccess từ useMutation
-      localStorage.setItem('token', data.token); // Lưu token
-      localStorage.setItem('username', data.user.username); // LƯU USERNAME VÀO LOCALSTORAGE
+    onSuccess: (data, variables, context) => {
+      localStorage.setItem('token', data.token);
+      localStorage.setItem('username', data.user.username);
       setIsLoggedIn(true);
-      toast.success("Đăng nhập thành công!"); 
-      
-      // Gọi callback onSuccess được truyền từ component (nếu có)
-      // Đây là nơi onLoginSuccess từ UserHomePage sẽ được gọi
-      if (context?.onSuccess) { // Kiểm tra nếu có context.onSuccess
-        context.onSuccess();
-      } else {
-        navigate('/'); // Điều hướng về trang chủ nếu không có callback
+      toast.success("Đăng nhập thành công!");
+
+      // Decode token để lấy role
+      try {
+        const decoded = jwtDecode<DecodedToken>(data.token);
+        const role = decoded?.role || decoded?.user?.role;
+        
+        // Store role in localStorage and auth store
+        if (role) {
+          localStorage.setItem('role', role);
+          setUser({
+            username: data.user.username,
+            role: role
+          });
+        } else {
+          setUser({
+            username: data.user.username
+          });
+        }
+        
+        if (role?.toLowerCase() === 'admin') {
+          navigate('/admin');
+        } else {
+          navigate('/');
+        }
+      } catch (error) {
+        console.error('Error decoding token:', error);
+        setUser({
+          username: data.user.username
+        });
+        navigate('/');
       }
     },
     onError: (error: any) => {
@@ -34,20 +66,33 @@ export const useRegister = () => {
   const navigate = useNavigate();
   return useMutation({
     mutationFn: authService.register,
-    onSuccess: (data, variables, context) => { // Thêm context để truy cập onSuccess từ useMutation
+    onSuccess: () => {
       toast.success("Đăng ký thành công! Vui lòng đăng nhập.");
-
-      // Gọi callback onSuccess được truyền từ component (nếu có)
-      // Đây là nơi onRegisterSuccess từ UserHomePage sẽ được gọi
-      if (context?.onSuccess) { // Kiểm tra nếu có context.onSuccess
-        context.onSuccess();
-      } else {
-        navigate('/login'); // Điều hướng về trang login nếu không có callback
-      }
+      navigate('/login');
     },
     onError: (error: any) => {
       const errorMessage = error?.response?.data?.message || "Có lỗi xảy ra khi đăng ký";
       toast.error(errorMessage);
     }
   });
+};
+
+export const useLogout = () => {
+  const navigate = useNavigate();
+  const setIsLoggedIn = useAuthStore((state) => state.setIsLoggedIn);
+  const setUser = useAuthStore((state) => state.setUser);
+
+  const logout = () => {
+    // Xóa tất cả các key liên quan đến auth
+    localStorage.removeItem('token');
+    localStorage.removeItem('username');
+    localStorage.removeItem('role');
+    
+    setIsLoggedIn(false);
+    setUser(null);
+    toast.success("Đăng xuất thành công!");
+    navigate('/');
+  };
+
+  return { logout };
 };

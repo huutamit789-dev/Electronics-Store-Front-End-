@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
 
 interface DecodedToken {
@@ -9,8 +9,12 @@ interface DecodedToken {
     exp?: number; // Thời gian hết hạn
 }
 
-export const AdminProtectedRoute = () => {
-    const token = localStorage.getItem('access_token');
+interface AdminProtectedRouteProps {
+    children: React.ReactNode;
+}
+
+export const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
+    const token = localStorage.getItem('token');
 
     if (!token) {
         return <Navigate to="/login" replace />;
@@ -30,7 +34,7 @@ export const AdminProtectedRoute = () => {
         const role = decoded?.role || decoded?.user?.role;
 
         if (role?.toLowerCase() === 'admin') {
-            return <Outlet />;
+            return <>{children}</>;
         }
 
         // Nếu đã đăng nhập nhưng không phải admin thì về trang chủ

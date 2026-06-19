@@ -25,38 +25,84 @@ export const UserManagementPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchUsers = async () => {
-      try {
-        setLoading(true);
-        // Endpoint: GET /api/users
-        const response = await axios.get<UserApiResponse>('http://localhost:8090/api/users');
-        setUsers(response.data.data || []); // Giả định data là mảng users
-        console.log('Fetched users:', response.data.data);
-      } catch (err) {
-        console.error('Error fetching users:', err);
-        setError('Failed to load users. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // States cho các Modal
+  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  // States cho dữ liệu
+  const [currentUser, setCurrentUser] = useState<User>({ _id: '', username: '', email: '', role: '' });
+  const [newUser, setNewUser] = useState({ username: '', email: '', role: '' });
+
+  useEffect(() => {
     fetchUsers();
   }, []);
 
+  const fetchUsers = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get<UserApiResponse>('http://localhost:8090/api/users');
+      setUsers(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setError('Failed to load users. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleAddUser = () => {
-    console.log('Event: Add new user button clicked');
-    // Logic để mở form thêm người dùng
+    setIsAddModalOpen(true);
+  };
+
+  const handleAdd = async () => {
+    try {
+      await axios.post('http://localhost:8090/api/users', newUser);
+      setIsAddModalOpen(false);
+      setNewUser({ username: '', email: '', role: '' });
+      fetchUsers();
+    } catch (err) {
+      console.error('Lỗi khi thêm người dùng:', err);
+      alert('Thêm người dùng thất bại!');
+    }
   };
 
   const handleEditUser = (userId: string) => {
-    console.log('Event: Edit user button clicked for user ID:', userId);
-    // Logic để mở form chỉnh sửa người dùng với userId
+    const user = users.find(u => u._id === userId);
+    if (user) {
+      setCurrentUser(user);
+      setIsEditModalOpen(true);
+    }
   };
 
-  const handleDeleteUser = (userId: string) => {
-    console.log('Event: Delete user button clicked for user ID:', userId);
-    // Logic để xác nhận và xóa người dùng
+  const handleUpdate = async () => {
+    try {
+      await axios.put(`http://localhost:8090/api/users/${currentUser._id}`, currentUser);
+      setIsEditModalOpen(false);
+      fetchUsers();
+    } catch (err) {
+      console.error('Lỗi khi cập nhật người dùng:', err);
+      alert('Cập nhật người dùng thất bại!');
+    }
+  };
+
+  const confirmDeleteUser = (userId: string) => {
+    const user = users.find(u => u._id === userId);
+    if (user) {
+      setCurrentUser(user);
+      setIsDeleteModalOpen(true);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    try {
+      await axios.delete(`http://localhost:8090/api/users/${currentUser._id}`);
+      setIsDeleteModalOpen(false);
+      fetchUsers();
+    } catch (err) {
+      console.error('Lỗi khi xóa người dùng:', err);
+      alert('Xóa người dùng thất bại!');
+    }
   };
 
   if (loading) {
@@ -113,7 +159,7 @@ export const UserManagementPage: React.FC = () => {
                       <button type="button" className="btn btn-warning btn-sm me-2" onClick={() => handleEditUser(user._id)}>
                         <i className="fas fa-edit"></i> Sửa
                       </button>
-                      <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDeleteUser(user._id)}>
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => confirmDeleteUser(user._id)}>
                         <i className="fas fa-trash"></i> Xóa
                       </button>
                     </td>
@@ -124,6 +170,56 @@ export const UserManagementPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* MODAL THÊM MỚI */}
+      {isAddModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Thêm người dùng</h5></div>
+            <div className="modal-body">
+              <input className="form-control mb-2" placeholder="Tên đăng nhập" value={newUser.username} onChange={(e) => setNewUser({...newUser, username: e.target.value})} />
+              <input className="form-control mb-2" placeholder="Email" value={newUser.email} onChange={(e) => setNewUser({...newUser, email: e.target.value})} />
+              <input className="form-control" placeholder="Vai trò (admin/user)" value={newUser.role} onChange={(e) => setNewUser({...newUser, role: e.target.value})} />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsAddModalOpen(false)}>Hủy</button>
+              <button className="btn btn-primary" onClick={handleAdd}>Thêm</button>
+            </div>
+          </div></div>
+        </div>
+      )}
+
+      {/* MODAL SỬA */}
+      {isEditModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Chỉnh sửa người dùng</h5></div>
+            <div className="modal-body">
+              <input className="form-control mb-2" placeholder="Tên đăng nhập" value={currentUser.username} onChange={(e) => setCurrentUser({...currentUser, username: e.target.value})} />
+              <input className="form-control mb-2" placeholder="Email" value={currentUser.email} onChange={(e) => setCurrentUser({...currentUser, email: e.target.value})} />
+              <input className="form-control" placeholder="Vai trò (admin/user)" value={currentUser.role} onChange={(e) => setCurrentUser({...currentUser, role: e.target.value})} />
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsEditModalOpen(false)}>Hủy</button>
+              <button className="btn btn-primary" onClick={handleUpdate}>Lưu thay đổi</button>
+            </div>
+          </div></div>
+        </div>
+      )}
+
+      {/* MODAL XÓA */}
+      {isDeleteModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Xác nhận xóa</h5></div>
+            <div className="modal-body">Bạn có chắc chắn muốn xóa người dùng <strong>{currentUser.username}</strong> không?</div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)}>Hủy</button>
+              <button className="btn btn-danger" onClick={handleDeleteUser}>Xóa</button>
+            </div>
+          </div></div>
+        </div>
+      )}
     </>
   );
 };

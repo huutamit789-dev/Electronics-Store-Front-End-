@@ -9,6 +9,10 @@ import { useCountdown } from '@/hooks/useCountdown';
 import { jwtDecode } from 'jwt-decode';
 import { Product } from '@/types/product';
 import { productService } from '@/features/products/services/productService';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useLogout } from '@/features/auth/hooks/useAuth';
+import { useCartStore } from '@/store/useCartStore';
+import { CartItem } from '@/types/order';
 
 // Import local images
 import iphone1 from '@/assets/images/iphone-17-pro-max-3.webp';
@@ -52,10 +56,12 @@ export const UserHomePage: React.FC = () => {
   // Sử dụng custom hook cho Countdown (1 giờ)
   const countdown = useCountdown(1);
 
-  // State cho trạng thái đăng nhập
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [loggedInUsername, setLoggedInUsername] = useState<string | null>(null);
+  // Sử dụng useAuthStore thay vì state riêng
+  const { isLoggedIn, user } = useAuthStore();
+  const { logout } = useLogout();
+  const { addItem, getTotalItems } = useCartStore();
   const [role, setRole] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   // Hàm kiểm tra trạng thái đăng nhập từ localStorage
   const fetchProducts = useCallback(async (categoryId: string | null = null) => {
@@ -88,26 +94,22 @@ export const UserHomePage: React.FC = () => {
   }, []);
 // Trong UserHomePage
   const checkLoginStatus = useCallback(() => {
-    const token = localStorage.getItem('access_token');
+    const token = localStorage.getItem('token');
     const username = localStorage.getItem('username');
 
     if (token) {
       try {
         const decoded: any = jwtDecode(token);
         const userRole = (decoded?.role || decoded?.user?.role || '').toLowerCase();
-
-        setIsLoggedIn(true);
-        setLoggedInUsername(username);
         setRole(userRole);
       } catch (e) {
         // Token lỗi -> Xóa sạch
-        handleLogout();
+        logout();
       }
     } else {
-      setIsLoggedIn(false);
       setRole(null);
     }
-  }, []);
+  }, [logout]);
   // Tự động điều hướng nếu là Admin khi vào trang chủ
   useEffect(() => {
     if (role && role.toLowerCase().trim() === 'admin') {
@@ -149,13 +151,37 @@ export const UserHomePage: React.FC = () => {
 
   // Hàm xử lý đăng xuất
   const handleLogout = () => {
-    // Xóa sạch tất cả các key liên quan đến auth
-    const keysToRemove = ['token', 'access_token', 'username', 'role'];
-    keysToRemove.forEach(key => localStorage.removeItem(key));
-    
+    logout();
     setRole(null);
-    setLoggedInUsername(null);
-    checkLoginStatus();
+  };
+
+  // Hàm xử lý tìm kiếm sản phẩm
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+  };
+
+  // Lọc sản phẩm theo từ khóa tìm kiếm
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    const query = searchQuery.toLowerCase();
+    return products.filter(product =>
+      product.name.toLowerCase().includes(query) ||
+      product.description?.toLowerCase().includes(query) ||
+      (product.cate_id && typeof product.cate_id === 'object' && product.cate_id.name?.toLowerCase().includes(query))
+    );
+  }, [products, searchQuery]);
+
+  // Hàm thêm sản phẩm vào giỏ hàng
+  const handleAddToCart = (product: Product) => {
+    const cartItem: CartItem = {
+      productId: product._id,
+      productName: product.name,
+      price: product.price,
+      quantity: 1,
+      image_url: product.image_url,
+    };
+    addItem(cartItem);
+    alert(`Đã thêm ${product.name} vào giỏ hàng!`);
   };
 
   // Hàm gọi sau khi đăng nhập thành công
@@ -235,7 +261,7 @@ export const UserHomePage: React.FC = () => {
                 <div className="dropdown">
                   <a className="nav-link dropdown-toggle text-dark d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                     <i className="bi bi-person fs-4 me-2"></i>
-                    {loggedInUsername}
+                    {user?.username}
                   </a>
                   <ul className="dropdown-menu" aria-labelledby="navbarDropdown">
                     <li><Link className="dropdown-item" to="/profile">Thông tin cá nhân</Link></li>
@@ -250,7 +276,13 @@ export const UserHomePage: React.FC = () => {
             </div>
           </div>
           <div className="w-100 mt-2 mt-lg-0">
-            <input className="form-control rounded-pill" type="search" placeholder="Tìm kiếm sản phẩm..." />
+            <input 
+              className="form-control rounded-pill" 
+              type="search" 
+              placeholder="Tìm kiếm sản phẩm..." 
+              value={searchQuery}
+              onChange={handleSearch}
+            />
           </div>
         </div>
       </nav>
@@ -294,7 +326,8 @@ export const UserHomePage: React.FC = () => {
                 {isLoggedIn ? (
                   <div className="d-flex align-items-center flex-column">
                     <i className="bi bi-person-circle fs-2 text-secondary mb-2"></i>
-                    <div className="small text-center">Chào mừng, <br /><strong>{loggedInUsername}</strong></div>
+                    <div className="small text-center">Chào mừng đến với<br /><strong>ElectroStore</strong></div>
+                    <div className="small text-center mt-2">Xin chào, <strong>{user?.username}</strong></div>
                     <button className="btn btn-outline-danger w-100 btn-sm mt-3" onClick={handleLogout}>Đăng xuất</button>
                   </div>
                 ) : (
@@ -304,7 +337,7 @@ export const UserHomePage: React.FC = () => {
                       <div className="ms-2 small">Chào mừng bạn đến với <br /><strong>ElectroStore</strong></div>
                     </div>
 
-                    <button className="btn btn-outline-danger w-100 btn-sm mt-auto" onClick={ isLoggedIn ? handleLogout : handleShowLoginModal}> {isLoggedIn ? "Đăng xuất" : "Đăng nhập"}</button>
+                    <button className="btn btn-outline-danger w-100 btn-sm mt-auto" onClick={handleShowLoginModal}>Đăng nhập</button>
                   </>
                 )}
               </div>
@@ -319,6 +352,46 @@ export const UserHomePage: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Search Results Section */}
+        {searchQuery.trim() && (
+          <div className="row g-3 mb-4">
+            <div className="col-12">
+              <div className="card p-4">
+                <h5 className="fw-bold mb-3">Kết quả tìm kiếm: "{searchQuery}"</h5>
+                {filteredProducts.length > 0 ? (
+                  <div className="row row-cols-1 row-cols-md-4 g-4">
+                    {filteredProducts.map(product => (
+                      <div className="col" key={product._id}>
+                        <Link to={`/product/${product._id}`} className="text-decoration-none text-dark">
+                          <div className="card card-product p-3">
+                            <img src={product.image_url} className="card-img-top" alt={product.name} style={{ height: '200px', objectFit: 'contain' }} />
+                            <div className="card-body px-0">
+                              <p className="small text-truncate">{product.name}</p>
+                              <p className="price mb-0">{product.price.toLocaleString()}đ</p>
+                            </div>
+                          </div>
+                        </Link>
+                        <button 
+                          className="btn btn-danger w-100 mt-2 btn-sm" 
+                          onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}
+                        >
+                          Thêm vào giỏ
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-5">
+                    <i className="bi bi-search fs-1 text-muted mb-3"></i>
+                    <p className="text-muted">Không tìm thấy sản phẩm nào phù hợp với "{searchQuery}"</p>
+                    <button className="btn btn-outline-danger btn-sm mt-2" onClick={() => setSearchQuery('')}>Xóa tìm kiếm</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Category Menu */}
         <div className="row g-3 mb-4">
@@ -376,6 +449,12 @@ export const UserHomePage: React.FC = () => {
                       </div>
                     </div>
                   </Link>
+                  <button 
+                    className="btn btn-danger w-100 mt-2 btn-sm" 
+                    onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}
+                  >
+                    Thêm vào giỏ
+                  </button>
                 </div>
               ))}
             </div>

@@ -27,38 +27,84 @@ export const ReviewManagementPage: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchReviews = async () => {
-      try {
-        setLoading(true);
-        // Endpoint: GET /api/reviews
-        const response = await axios.get<ReviewApiResponse>('http://localhost:8090/api/reviews');
-        setReviews(response.data.data || []);
-        console.log('Fetched reviews:', response.data.data);
-      } catch (err) {
-        console.error('Error fetching reviews:', err);
-        setError('Failed to load reviews. Please try again later.');
-      } finally {
-        setLoading(false);
-      }
-    };
+  // States cho các Modal
+  const [isViewModalOpen, setIsViewModalOpen] = useState(false);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
 
+  // States cho dữ liệu
+  const [currentReview, setCurrentReview] = useState<Review>({
+    _id: '',
+    product_id: '',
+    user_id: '',
+    rating: 0,
+    comment: '',
+    created_at: ''
+  });
+  const [editReview, setEditReview] = useState({ rating: 0, comment: '' });
+
+  useEffect(() => {
     fetchReviews();
   }, []);
 
+  const fetchReviews = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get<ReviewApiResponse>('http://localhost:8090/api/reviews');
+      setReviews(response.data.data || []);
+    } catch (err) {
+      console.error('Error fetching reviews:', err);
+      setError('Failed to load reviews. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleViewReview = (reviewId: string) => {
-    console.log('Event: View review button clicked for review ID:', reviewId);
-    // Logic để xem chi tiết đánh giá
+    const review = reviews.find(r => r._id === reviewId);
+    if (review) {
+      setCurrentReview(review);
+      setIsViewModalOpen(true);
+    }
   };
 
   const handleEditReview = (reviewId: string) => {
-    console.log('Event: Edit review button clicked for review ID:', reviewId);
-    // Logic để mở form chỉnh sửa đánh giá
+    const review = reviews.find(r => r._id === reviewId);
+    if (review) {
+      setCurrentReview(review);
+      setEditReview({ rating: review.rating, comment: review.comment });
+      setIsEditModalOpen(true);
+    }
   };
 
-  const handleDeleteReview = (reviewId: string) => {
-    console.log('Event: Delete review button clicked for review ID:', reviewId);
-    // Logic để xác nhận và xóa đánh giá
+  const handleUpdate = async () => {
+    try {
+      await axios.put(`http://localhost:8090/api/reviews/${currentReview._id}`, editReview);
+      setIsEditModalOpen(false);
+      fetchReviews();
+    } catch (err) {
+      console.error('Lỗi khi cập nhật đánh giá:', err);
+      alert('Cập nhật đánh giá thất bại!');
+    }
+  };
+
+  const confirmDeleteReview = (reviewId: string) => {
+    const review = reviews.find(r => r._id === reviewId);
+    if (review) {
+      setCurrentReview(review);
+      setIsDeleteModalOpen(true);
+    }
+  };
+
+  const handleDeleteReview = async () => {
+    try {
+      await axios.delete(`http://localhost:8090/api/reviews/${currentReview._id}`);
+      setIsDeleteModalOpen(false);
+      fetchReviews();
+    } catch (err) {
+      console.error('Lỗi khi xóa đánh giá:', err);
+      alert('Xóa đánh giá thất bại!');
+    }
   };
 
   const renderRatingStars = (rating: number) => {
@@ -131,7 +177,7 @@ export const ReviewManagementPage: React.FC = () => {
                       <button type="button" className="btn btn-warning btn-sm me-2" onClick={() => handleEditReview(review._id)}>
                         <i className="fas fa-edit"></i> Sửa
                       </button>
-                      <button type="button" className="btn btn-danger btn-sm" onClick={() => handleDeleteReview(review._id)}>
+                      <button type="button" className="btn btn-danger btn-sm" onClick={() => confirmDeleteReview(review._id)}>
                         <i className="fas fa-trash"></i> Xóa
                       </button>
                     </td>
@@ -142,6 +188,63 @@ export const ReviewManagementPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* MODAL XEM CHI TIẾT */}
+      {isViewModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Chi tiết đánh giá</h5></div>
+            <div className="modal-body">
+              <p><strong>ID Đánh giá:</strong> {currentReview._id}</p>
+              <p><strong>ID Sản phẩm:</strong> {currentReview.product_id}</p>
+              <p><strong>ID Người dùng:</strong> {currentReview.user_id}</p>
+              <p><strong>Điểm đánh giá:</strong> {renderRatingStars(currentReview.rating)}</p>
+              <p><strong>Bình luận:</strong> {currentReview.comment}</p>
+              <p><strong>Ngày tạo:</strong> {new Date(currentReview.created_at).toLocaleString()}</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsViewModalOpen(false)}>Đóng</button>
+            </div>
+          </div></div>
+        </div>
+      )}
+
+      {/* MODAL SỬA */}
+      {isEditModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Chỉnh sửa đánh giá</h5></div>
+            <div className="modal-body">
+              <div className="mb-3">
+                <label>Điểm đánh giá (1-5):</label>
+                <input className="form-control" type="number" min="1" max="5" value={editReview.rating} onChange={(e) => setEditReview({...editReview, rating: Number(e.target.value)})} />
+              </div>
+              <div className="mb-3">
+                <label>Bình luận:</label>
+                <textarea className="form-control" value={editReview.comment} onChange={(e) => setEditReview({...editReview, comment: e.target.value})} />
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsEditModalOpen(false)}>Hủy</button>
+              <button className="btn btn-primary" onClick={handleUpdate}>Lưu thay đổi</button>
+            </div>
+          </div></div>
+        </div>
+      )}
+
+      {/* MODAL XÓA */}
+      {isDeleteModalOpen && (
+        <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog"><div className="modal-content">
+            <div className="modal-header"><h5 className="modal-title">Xác nhận xóa</h5></div>
+            <div className="modal-body">Bạn có chắc chắn muốn xóa đánh giá này không?</div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)}>Hủy</button>
+              <button className="btn btn-danger" onClick={handleDeleteReview}>Xóa</button>
+            </div>
+          </div></div>
+        </div>
+      )}
     </>
   );
 };

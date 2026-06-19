@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Link, Outlet } from 'react-router-dom';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
+import { useLogout } from '@/features/auth/hooks/useAuth';
 
 interface AdminLayoutProps {
   // Khi AdminLayout được dùng làm layout route, nó không nhận children trực tiếp
@@ -8,10 +9,17 @@ interface AdminLayoutProps {
 
 export const AdminLayout: React.FC<AdminLayoutProps> = () => {
   const [sidebarToggled, setSidebarToggled] = useState(false);
+  const { logout } = useLogout();
+  const navigate = useNavigate();
 
   // Hàm để toggle sidebar
   const handleToggleSidebar = () => {
     setSidebarToggled(!sidebarToggled);
+  };
+
+  // Hàm xử lý đăng xuất
+  const handleLogout = () => {
+    logout();
   };
 
   // Thêm/bỏ class 'toggled' vào body để điều khiển sidebar
@@ -213,7 +221,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
               <li className="nav-item dropdown no-arrow">
                 <a className="nav-link dropdown-toggle" href="#" id="userDropdown" role="button"
                   data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
-                  <span className="mr-2 d-none d-lg-inline text-gray-600 small">Douglas McGee</span>
+                  <span className="mr-2 d-none d-lg-inline text-gray-600 small">Admin</span>
                   <img className="img-profile rounded-circle"
                     src="img/undraw_profile.svg" />
                 </a>
@@ -233,7 +241,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
                     Activity Log
                   </a>
                   <div className="dropdown-divider"></div>
-                  <a className="dropdown-item" href="#" data-toggle="modal" data-target="#logoutModal">
+                  <a className="dropdown-item" href="#" onClick={handleLogout}>
                     <i className="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
                     Logout
                   </a>

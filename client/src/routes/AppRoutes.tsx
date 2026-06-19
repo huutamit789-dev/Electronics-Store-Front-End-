@@ -14,6 +14,7 @@ import { ReviewManagementPage } from '@/pages/Admin/ReviewManagementPage';
 import { PaymentManagementPage } from '@/pages/Admin/PaymentManagementPage';
 import { OrderHistoryPage } from '@/pages/Admin/OrderHistoryPage';
 import { AdminLayout } from '@/components/layout/Admin/AdminLayout';
+import { AdminProtectedRoute } from '@/components/layout/Admin/AdminProtectedRoute';
 
 export const AppRoutes = () => {
     return (
@@ -26,7 +27,11 @@ export const AppRoutes = () => {
             <Route path="/product/:id" element={<ProductDetailPage />} />
 
             {/* Admin Routes */}
-            <Route path="/admin" element={<AdminLayout />}>
+            <Route path="/admin" element={
+                <AdminProtectedRoute>
+                    <AdminLayout />
+                </AdminProtectedRoute>
+            }>
                 {/* Tự động chuyển hướng /admin về /admin/dashboard */}
                 <Route index element={<Navigate to="/admin/dashboard" replace />} />
 

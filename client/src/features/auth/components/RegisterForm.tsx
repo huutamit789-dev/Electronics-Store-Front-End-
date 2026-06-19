@@ -260,7 +260,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isModal = false, onS
       </form>
 
       <div className="text-center">
-        <p className="mb-2">Đã có tài khoản? <a href="#" onClick={onSwitchToLogin} className="text-decoration-none fw-bold text-danger">Đăng nhập ngay</a></p> {/* Đã thêm text-danger */}
+        <p className="mb-2">Đã có tài khoản? <a href="/login" onClick={onSwitchToLogin} className="text-decoration-none fw-bold text-danger">Đăng nhập ngay</a></p> {/* Đã thêm text-danger */}
         <p className="text-muted small">
           Điều khoản dịch vụ · Chính sách bảo mật · Thông báo thu thập
         </p>
