@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import axios from 'axios';
+
+import toast, { Toaster } from 'react-hot-toast';
+import axiosClient from "@/api/axiosClient"; // Import toast và Toaster
 
 interface Category {
   _id: string;
@@ -7,9 +9,26 @@ interface Category {
   description: string;
 }
 
+interface CategoryApiResponse {
+  success: boolean;
+  message: string;
+  data: {
+    categories: Category[];
+    total: number;
+    currentPage: number;
+    totalPages: number;
+  };
+}
+
 export const CategoryManagementPage: React.FC = () => {
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
+
+  // States cho phân trang
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [categoriesPerPage, setCategoriesPerPage] = useState<number>(10); // Số danh mục trên mỗi trang
+  const [totalCategories, setTotalCategories] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
 
   // States cho các Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -21,16 +40,20 @@ export const CategoryManagementPage: React.FC = () => {
   const [newCategory, setNewCategory] = useState({ name: '', description: '' });
 
   useEffect(() => {
-    fetchCategories();
-  }, []);
+    fetchCategories(currentPage, categoriesPerPage);
+  }, [currentPage, categoriesPerPage]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (page: number, limit: number) => {
     try {
       setLoading(true);
-      const response = await axios.get('http://localhost:8090/api/categories');
+      const response = await axiosClient.get<CategoryApiResponse>(`http://localhost:8090/api/categories?page=${page}&limit=${limit}`);
       setCategories(response.data.data?.categories || []);
+      setTotalCategories(response.data.data.total);
+      setCurrentPage(response.data.data.currentPage);
+      setTotalPages(response.data.data.totalPages);
     } catch (err) {
-      console.error(err);
+      console.error('Lỗi khi tải danh mục:', err);
+      toast.error('Lỗi khi tải danh mục!');
     } finally {
       setLoading(false);
     }
@@ -39,13 +62,14 @@ export const CategoryManagementPage: React.FC = () => {
   // --- Handlers ---
   const handleAdd = async () => {
     try {
-      await axios.post('http://localhost:8090/api/categories', newCategory);
+      await axiosClient.post('http://localhost:8090/api/categories', newCategory);
       setIsAddModalOpen(false);
       setNewCategory({ name: '', description: '' });
-      fetchCategories(); // Làm mới lại danh sách sau khi thêm thành công
+      fetchCategories(currentPage, categoriesPerPage); // Làm mới lại danh sách sau khi thêm thành công
+      toast.success('Thêm danh mục thành công!');
     } catch (err) {
       console.error('Lỗi khi thêm danh mục:', err);
-      alert('Thêm danh mục thất bại!');
+      toast.error('Thêm danh mục thất bại!');
     }
   };
 
@@ -54,10 +78,16 @@ export const CategoryManagementPage: React.FC = () => {
     setIsEditModalOpen(true);
   };
 
-  const handleUpdate = () => {
-    console.log('Cập nhật:', currentCategory);
-    // axios.put(...)
-    setIsEditModalOpen(false);
+  const handleUpdate = async () => {
+    try {
+      await axiosClient.put(`http://localhost:8090/api/categories/${currentCategory._id}`, currentCategory);
+      setIsEditModalOpen(false);
+      fetchCategories(currentPage, categoriesPerPage); // Làm mới lại danh sách sau khi cập nhật thành công
+      toast.success('Cập nhật danh mục thành công!');
+    } catch (err) {
+      console.error('Lỗi khi cập nhật danh mục:', err);
+      toast.error('Cập nhật danh mục thất bại!');
+    }
   };
 
   const confirmDelete = (category: Category) => {
@@ -67,20 +97,25 @@ export const CategoryManagementPage: React.FC = () => {
 
   const handleDelete = async () => {
     try {
-      // Gọi API xóa dựa trên ID của category đang được chọn
-      await axios.delete(`http://localhost:8090/api/categories/${currentCategory._id}`);
+      await axiosClient.delete(`http://localhost:8090/api/categories/${currentCategory._id}`);
       setIsDeleteModalOpen(false);
-      fetchCategories(); // Làm mới lại danh sách sau khi xóa thành công
+      fetchCategories(currentPage, categoriesPerPage); // Làm mới lại danh sách sau khi xóa thành công
+      toast.success('Xóa danh mục thành công!');
     } catch (err) {
       console.error('Lỗi khi xóa danh mục:', err);
-      alert('Xóa danh mục thất bại!');
+      toast.error('Xóa danh mục thất bại!');
     }
+  };
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
   };
 
   if (loading) return <div className="text-center mt-5">Đang tải dữ liệu...</div>;
 
   return (
       <>
+        <Toaster /> {/* Component Toaster để hiển thị các toast */}
         <h1 className="h3 mb-4 text-gray-800">Quản lý Danh mục</h1>
         <button className="btn btn-primary mb-3" onClick={() => setIsAddModalOpen(true)}>
           <i className="fas fa-plus me-2"></i> Thêm danh mục mới
@@ -114,6 +149,33 @@ export const CategoryManagementPage: React.FC = () => {
                 ))}
                 </tbody>
               </table>
+            </div>
+            {/* Pagination Controls */}
+            <div className="d-flex justify-content-between align-items-center mt-3">
+              <div>
+                Hiển thị {categories.length} trên {totalCategories} danh mục (Trang {currentPage} / {totalPages})
+              </div>
+              <nav>
+                <ul className="pagination mb-0">
+                  <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                    <button className="page-link" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+                      Previous
+                    </button>
+                  </li>
+                  {Array.from({ length: totalPages }, (_, i) => (
+                      <li key={i + 1} className={`page-item ${currentPage === i + 1 ? 'active' : ''}`}>
+                        <button className="page-link" onClick={() => handlePageChange(i + 1)}>
+                          {i + 1}
+                        </button>
+                      </li>
+                  ))}
+                  <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                    <button className="page-link" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
+                      Next
+                    </button>
+                  </li>
+                </ul>
+              </nav>
             </div>
           </div>
         </div>

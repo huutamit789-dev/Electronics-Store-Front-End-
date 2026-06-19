@@ -119,6 +119,17 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
         </li>
 
         {/* Divider */}
+        <hr className="sidebar-divider" />
+
+        {/* Nav Item - Logout (New position) */}
+        <li className="nav-item">
+          <a className="nav-link" href="#" onClick={handleLogout}>
+            <i className="fas fa-fw fa-sign-out-alt"></i>
+            <span>Đăng xuất</span>
+          </a>
+        </li>
+
+        {/* Divider */}
         <hr className="sidebar-divider d-none d-md-block" />
         <div className="text-center d-none d-md-inline">
           <button className="rounded-circle border-0" id="sidebarToggle" onClick={handleToggleSidebar}></button>
@@ -241,10 +252,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
                     Activity Log
                   </a>
                   <div className="dropdown-divider"></div>
-                  <a className="dropdown-item" href="#" onClick={handleLogout}>
-                    <i className="fas fa-sign-out-alt fa-sm fa-fw mr-2 text-gray-400"></i>
-                    Logout
-                  </a>
+                  {/* Removed Logout from here */}
                 </div>
               </li>
             </ul>

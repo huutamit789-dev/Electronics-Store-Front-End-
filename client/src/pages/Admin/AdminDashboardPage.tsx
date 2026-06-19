@@ -1,11 +1,18 @@
 import React from 'react';
-// Không cần import AdminLayout ở đây nữa vì nó đã được bọc ở AppRoutes
 
 export const AdminDashboardPage: React.FC = () => {
+  const handleLogout = () => {
+    // Xóa token xác thực khỏi localStorage
+    localStorage.removeItem('authToken'); // Giả định token được lưu với key 'authToken'
+    // Chuyển hướng người dùng đến trang đăng nhập
+    window.location.href = '/login'; // Giả định trang đăng nhập là '/login'
+  };
+
   return (
-    // Chỉ giữ lại phần nội dung chính của dashboard, bỏ AdminLayout bọc ngoài
     <>
-      <h1 className="h3 mb-4 text-gray-800">Dashboard</h1>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="h3 text-gray-800">Dashboard</h1>
+      </div>
 
       <div className="row">
         {/* Earnings (Monthly) Card Example */}

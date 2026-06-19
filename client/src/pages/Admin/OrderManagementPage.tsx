@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
-// Xóa các import Ant Design
-// import { Table, Button, Space, Typography, Spin, Alert, Tag } from 'antd';
-// import { EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosClient from "@/api/axiosClient";
+import toast, { Toaster } from 'react-hot-toast'; // Import toast và Toaster
 
 // Định nghĩa kiểu dữ liệu cho Order Product
 interface OrderProduct {
@@ -23,17 +21,28 @@ interface Order {
   // Thêm các trường khác nếu có
 }
 
-// Định nghĩa kiểu dữ liệu cho Order API Response
+// Định nghĩa kiểu dữ liệu cho Order API Response (đã cập nhật)
 interface OrderApiResponse {
     success: boolean;
     message: string;
-    data: Order[]; // Giả định API trả về trực tiếp mảng Order
+    data: {
+      orders: Order[];
+      total: number;
+      currentPage: number;
+      totalPages: number;
+    };
 }
 
 export const OrderManagementPage: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null); // Không cần state error riêng nữa
+
+  // States cho phân trang
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [ordersPerPage, setOrdersPerPage] = useState<number>(10); // Số đơn hàng trên mỗi trang
+  const [totalOrders, setTotalOrders] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
 
   // States cho các Modal
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -52,17 +61,21 @@ export const OrderManagementPage: React.FC = () => {
   const [newStatus, setNewStatus] = useState<Order['status']>('pending');
 
   useEffect(() => {
-    fetchOrders();
-  }, []);
+    fetchOrders(currentPage, ordersPerPage);
+  }, [currentPage, ordersPerPage]);
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (page: number, limit: number) => {
     try {
       setLoading(true);
-      const response = await axios.get<OrderApiResponse>('http://localhost:8090/api/orders');
-      setOrders(response.data.data || []);
+      const response = await axiosClient.get<OrderApiResponse>(`http://localhost:8090/api/orders?page=${page}&limit=${limit}`);
+      console.log("order", response);
+      setOrders(response.data.data?.orders || []); // Lấy mảng orders từ data.data.orders
+      setTotalOrders(response.data.data.total);
+      setCurrentPage(response.data.data.currentPage);
+      setTotalPages(response.data.data.totalPages);
     } catch (err) {
       console.error('Error fetching orders:', err);
-      setError('Failed to load orders. Please try again later.');
+      toast.error('Failed to load orders. Please try again later.'); // Thông báo lỗi bằng toast
     } finally {
       setLoading(false);
     }
@@ -87,12 +100,13 @@ export const OrderManagementPage: React.FC = () => {
 
   const handleStatusUpdate = async () => {
     try {
-      await axios.put(`http://localhost:8090/api/orders/${currentOrder._id}/status`, { status: newStatus });
+      await axiosClient.put(`http://localhost:8090/api/orders/${currentOrder._id}/status`, { status: newStatus });
       setIsStatusModalOpen(false);
-      fetchOrders();
+      fetchOrders(currentPage, ordersPerPage); // Cập nhật lại danh sách sau khi cập nhật trạng thái
+      toast.success('Cập nhật trạng thái đơn hàng thành công!'); // Thông báo thành công bằng toast
     } catch (err) {
       console.error('Lỗi khi cập nhật trạng thái:', err);
-      alert('Cập nhật trạng thái thất bại!');
+      toast.error('Cập nhật trạng thái đơn hàng thất bại!'); // Thông báo lỗi bằng toast
     }
   };
 
@@ -106,12 +120,13 @@ export const OrderManagementPage: React.FC = () => {
 
   const handleDeleteOrder = async () => {
     try {
-      await axios.delete(`http://localhost:8090/api/orders/${currentOrder._id}`);
+      await axiosClient.delete(`http://localhost:8090/api/orders/${currentOrder._id}`);
       setIsDeleteModalOpen(false);
-      fetchOrders();
+      fetchOrders(currentPage, ordersPerPage); // Cập nhật lại danh sách sau khi xóa
+      toast.success('Xóa đơn hàng thành công!'); // Thông báo thành công bằng toast
     } catch (err) {
       console.error('Lỗi khi xóa đơn hàng:', err);
-      alert('Xóa đơn hàng thất bại!');
+      toast.error('Xóa đơn hàng thất bại!'); // Thông báo lỗi bằng toast
     }
   };
 
@@ -126,6 +141,10 @@ export const OrderManagementPage: React.FC = () => {
     }
   };
 
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
+  };
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
@@ -137,17 +156,18 @@ export const OrderManagementPage: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="alert alert-danger" role="alert">
-        <h4 className="alert-heading">Lỗi!</h4>
-        <p>{error}</p>
-      </div>
-    );
-  }
+  // if (error) { // Đã thay thế bằng toast.error
+  //   return (
+  //     <div className="alert alert-danger" role="alert">
+  //       <h4 className="alert-heading">Lỗi!</h4>
+  //       <p>{error}</p>
+  //     </div>
+  //   );
+  // }
 
   return (
     <>
+      <Toaster /> {/* Component Toaster để hiển thị các toast */}
       <h1 className="h3 mb-4 text-gray-800">Quản lý Đơn hàng</h1>
 
       <div className="card shadow mb-4">
@@ -194,6 +214,33 @@ export const OrderManagementPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+          {/* Pagination Controls */}
+          <div className="d-flex justify-content-between align-items-center mt-3">
+            <div>
+              Hiển thị {orders.length} trên {totalOrders} đơn hàng (Trang {currentPage} / {totalPages})
+            </div>
+            <nav>
+              <ul className="pagination mb-0">
+                <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                  <button className="page-link" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+                    Previous
+                  </button>
+                </li>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <li key={i + 1} className={`page-item ${currentPage === i + 1 ? 'active' : ''}`}>
+                    <button className="page-link" onClick={() => handlePageChange(i + 1)}>
+                      {i + 1}
+                    </button>
+                  </li>
+                ))}
+                <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                  <button className="page-link" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
+                    Next
+                  </button>
+                </li>
+              </ul>
+            </nav>
           </div>
         </div>
       </div>

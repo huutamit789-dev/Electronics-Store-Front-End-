@@ -1,3 +1,10 @@
+export interface Category {
+  _id: string;
+  name: string;
+  description?: string; // Thêm description nếu có thể có
+  __v?: number; // Thêm __v nếu có thể có
+}
+
 export interface Product {
   _id: string;
   name: string;
@@ -5,7 +12,7 @@ export interface Product {
   price: number;
   stock_quantity: number;
   image_url: string;
-  cate_id: string;
+  cate_id: string | Category; // Cập nhật để có thể là string hoặc Category object
   __v: number;
 }
 

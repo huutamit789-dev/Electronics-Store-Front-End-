@@ -1,8 +1,5 @@
 import React, { useEffect, useState } from 'react';
-// Xóa các import Ant Design
-// import { Table, Button, Space, Typography, Spin, Alert, Rate } from 'antd';
-// import { EditOutlined, DeleteOutlined, EyeOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosClient from "@/api/axiosClient";
 
 // Định nghĩa kiểu dữ liệu cho Review
 interface Review {
@@ -50,7 +47,8 @@ export const ReviewManagementPage: React.FC = () => {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const response = await axios.get<ReviewApiResponse>('http://localhost:8090/api/reviews');
+      const response = await axiosClient.get<ReviewApiResponse>('http://localhost:8090/api/reviews');
+  console.log("review", response)
       setReviews(response.data.data || []);
     } catch (err) {
       console.error('Error fetching reviews:', err);
@@ -79,7 +77,7 @@ export const ReviewManagementPage: React.FC = () => {
 
   const handleUpdate = async () => {
     try {
-      await axios.put(`http://localhost:8090/api/reviews/${currentReview._id}`, editReview);
+      await axiosClient.put(`http://localhost:8090/api/reviews/${currentReview._id}`, editReview);
       setIsEditModalOpen(false);
       fetchReviews();
     } catch (err) {
@@ -98,7 +96,7 @@ export const ReviewManagementPage: React.FC = () => {
 
   const handleDeleteReview = async () => {
     try {
-      await axios.delete(`http://localhost:8090/api/reviews/${currentReview._id}`);
+      await axiosClient.delete(`http://localhost:8090/api/reviews/${currentReview._id}`);
       setIsDeleteModalOpen(false);
       fetchReviews();
     } catch (err) {

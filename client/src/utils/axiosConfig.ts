@@ -2,6 +2,9 @@ import axios from 'axios';
 
 const isDevelopment = process.env.NODE_ENV === 'development';
 
+// Set base URL for Axios
+axios.defaults.baseURL = 'http://localhost:8090'; // Assuming your backend runs on this address
+
 if (isDevelopment) {
   console.log('Axios Interceptors configured for development environment.');
 }

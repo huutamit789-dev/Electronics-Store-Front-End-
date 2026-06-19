@@ -1,8 +1,6 @@
 import React, { useEffect, useState } from 'react';
-// Xóa các import Ant Design
-// import { Table, Button, Space, Typography, Spin, Alert } from 'antd';
-// import { EditOutlined, DeleteOutlined, PlusOutlined } from '@ant-design/icons';
-import axios from 'axios';
+import axiosClient from "@/api/axiosClient";
+import toast, { Toaster } from 'react-hot-toast'; // Import toast và Toaster
 
 // Định nghĩa kiểu dữ liệu cho User
 interface User {
@@ -13,17 +11,28 @@ interface User {
   // Thêm các trường khác nếu có
 }
 
-// Định nghĩa kiểu dữ liệu cho User API Response
+// Định nghĩa kiểu dữ liệu cho User API Response (đã cập nhật)
 interface UserApiResponse {
     success: boolean;
     message: string;
-    data: User[]; // Giả định API trả về trực tiếp mảng User
+    data: {
+      users: User[];
+      total: number;
+      currentPage: number;
+      totalPages: number;
+    };
 }
 
 export const UserManagementPage: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
-  const [error, setError] = useState<string | null>(null);
+  // const [error, setError] = useState<string | null>(null); // Không cần state error riêng nữa
+
+  // States cho phân trang
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [usersPerPage, setUsersPerPage] = useState<number>(10); // Số người dùng trên mỗi trang
+  const [totalUsers, setTotalUsers] = useState<number>(0);
+  const [totalPages, setTotalPages] = useState<number>(0);
 
   // States cho các Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -35,17 +44,21 @@ export const UserManagementPage: React.FC = () => {
   const [newUser, setNewUser] = useState({ username: '', email: '', role: '' });
 
   useEffect(() => {
-    fetchUsers();
-  }, []);
+    fetchUsers(currentPage, usersPerPage);
+  }, [currentPage, usersPerPage]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = async (page: number, limit: number) => {
     try {
       setLoading(true);
-      const response = await axios.get<UserApiResponse>('http://localhost:8090/api/users');
-      setUsers(response.data.data || []);
+      const response = await axiosClient.get<UserApiResponse>(`http://localhost:8090/api/users?page=${page}&limit=${limit}`);
+      console.log("user data", response);
+      setUsers(response.data.data?.users || []); // Lấy mảng users từ data.data.users
+      setTotalUsers(response.data.data.total);
+      setCurrentPage(response.data.data.currentPage);
+      setTotalPages(response.data.data.totalPages);
     } catch (err) {
       console.error('Error fetching users:', err);
-      setError('Failed to load users. Please try again later.');
+      toast.error('Failed to load users. Please try again later.'); // Thông báo lỗi bằng toast
     } finally {
       setLoading(false);
     }
@@ -57,13 +70,14 @@ export const UserManagementPage: React.FC = () => {
 
   const handleAdd = async () => {
     try {
-      await axios.post('http://localhost:8090/api/users', newUser);
+      await axiosClient.post('http://localhost:8090/api/users', newUser);
       setIsAddModalOpen(false);
       setNewUser({ username: '', email: '', role: '' });
-      fetchUsers();
+      fetchUsers(currentPage, usersPerPage); // Cập nhật lại danh sách sau khi thêm
+      toast.success('Thêm người dùng thành công!'); // Thông báo thành công bằng toast
     } catch (err) {
       console.error('Lỗi khi thêm người dùng:', err);
-      alert('Thêm người dùng thất bại!');
+      toast.error('Thêm người dùng thất bại!'); // Thông báo lỗi bằng toast
     }
   };
 
@@ -77,12 +91,13 @@ export const UserManagementPage: React.FC = () => {
 
   const handleUpdate = async () => {
     try {
-      await axios.put(`http://localhost:8090/api/users/${currentUser._id}`, currentUser);
+      await axiosClient.put(`http://localhost:8090/api/users/${currentUser._id}`, currentUser);
       setIsEditModalOpen(false);
-      fetchUsers();
+      fetchUsers(currentPage, usersPerPage); // Cập nhật lại danh sách sau khi cập nhật
+      toast.success('Cập nhật người dùng thành công!'); // Thông báo thành công bằng toast
     } catch (err) {
       console.error('Lỗi khi cập nhật người dùng:', err);
-      alert('Cập nhật người dùng thất bại!');
+      toast.error('Cập nhật người dùng thất bại!'); // Thông báo lỗi bằng toast
     }
   };
 
@@ -96,13 +111,18 @@ export const UserManagementPage: React.FC = () => {
 
   const handleDeleteUser = async () => {
     try {
-      await axios.delete(`http://localhost:8090/api/users/${currentUser._id}`);
+      await axiosClient.delete(`http://localhost:8090/api/users/${currentUser._id}`);
       setIsDeleteModalOpen(false);
-      fetchUsers();
+      fetchUsers(currentPage, usersPerPage); // Cập nhật lại danh sách sau khi xóa
+      toast.success('Xóa người dùng thành công!'); // Thông báo thành công bằng toast
     } catch (err) {
       console.error('Lỗi khi xóa người dùng:', err);
-      alert('Xóa người dùng thất bại!');
+      toast.error('Xóa người dùng thất bại!'); // Thông báo lỗi bằng toast
     }
+  };
+
+  const handlePageChange = (pageNumber: number) => {
+    setCurrentPage(pageNumber);
   };
 
   if (loading) {
@@ -116,17 +136,18 @@ export const UserManagementPage: React.FC = () => {
     );
   }
 
-  if (error) {
-    return (
-      <div className="alert alert-danger" role="alert">
-        <h4 className="alert-heading">Lỗi!</h4>
-        <p>{error}</p>
-      </div>
-    );
-  }
+  // if (error) { // Đã thay thế bằng toast.error
+  //   return (
+  //     <div className="alert alert-danger" role="alert">
+  //       <h4 className="alert-heading">Lỗi!</h4>
+  //       <p>{error}</p>
+  //     </div>
+  //   );
+  // }
 
   return (
     <>
+      <Toaster /> {/* Component Toaster để hiển thị các toast */}
       <h1 className="h3 mb-4 text-gray-800">Quản lý Người dùng</h1>
       <button type="button" className="btn btn-primary mb-3" onClick={handleAddUser}>
         <i className="fas fa-plus me-2"></i> Thêm người dùng mới
@@ -141,7 +162,7 @@ export const UserManagementPage: React.FC = () => {
             <table className="table table-bordered" id="dataTable" width="100%" cellSpacing="0">
               <thead>
                 <tr>
-                  <th>ID</th>
+                  <th hidden>ID</th>
                   <th>Tên đăng nhập</th>
                   <th>Email</th>
                   <th>Vai trò</th>
@@ -151,7 +172,7 @@ export const UserManagementPage: React.FC = () => {
               <tbody>
                 {users.map((user) => (
                   <tr key={user._id}>
-                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{user._id}</span></td>
+                    <td hidden><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{user._id}</span></td>
                     <td>{user.username}</td>
                     <td>{user.email}</td>
                     <td>{user.role}</td>
@@ -167,6 +188,33 @@ export const UserManagementPage: React.FC = () => {
                 ))}
               </tbody>
             </table>
+          </div>
+          {/* Pagination Controls */}
+          <div className="d-flex justify-content-between align-items-center mt-3">
+            <div>
+              Hiển thị {users.length} trên {totalUsers} người dùng (Trang {currentPage} / {totalPages})
+            </div>
+            <nav>
+              <ul className="pagination mb-0">
+                <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
+                  <button className="page-link" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
+                    Previous
+                  </button>
+                </li>
+                {Array.from({ length: totalPages }, (_, i) => (
+                  <li key={i + 1} className={`page-item ${currentPage === i + 1 ? 'active' : ''}`}>
+                    <button className="page-link" onClick={() => handlePageChange(i + 1)}>
+                      {i + 1}
+                    </button>
+                  </li>
+                ))}
+                <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
+                  <button className="page-link" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
+                    Next
+                  </button>
+                </li>
+              </ul>
+            </nav>
           </div>
         </div>
       </div>

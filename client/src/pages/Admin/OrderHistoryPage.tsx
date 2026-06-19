@@ -1,9 +1,5 @@
 import React, { useEffect, useState } from 'react';
-// Xóa các import Ant Design
-// import { Table, Button, Space, Typography, Spin, Alert, Tag } from 'antd';
-// import { EyeOutlined } from '@ant-design/icons';
-import axios from 'axios';
-
+import axiosClient from "@/api/axiosClient";
 // Định nghĩa kiểu dữ liệu cho Order History Item (có thể giống Order hoặc có thêm/bớt trường)
 interface OrderHistoryItem {
   _id: string;
@@ -32,7 +28,7 @@ export const OrderHistoryPage: React.FC = () => {
       try {
         setLoading(true);
         // Endpoint: GET /api/orderHistory
-        const response = await axios.get<OrderHistoryApiResponse>('http://localhost:8090/api/orderHistory');
+        const response = await axiosClient.get<OrderHistoryApiResponse>('http://localhost:8090/api/orderHistory');
         setOrderHistory(response.data.data || []);
         console.log('Fetched order history:', response.data.data);
       } catch (err) {
