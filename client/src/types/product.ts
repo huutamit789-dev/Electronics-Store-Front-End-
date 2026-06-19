@@ -17,6 +17,7 @@ export interface ProductApiResponse {
   success: boolean;
   message: string;
   data: {
+      totalProducts: number;
     products?: Product[];
     categories?: ProductCategory[];
     total: number;

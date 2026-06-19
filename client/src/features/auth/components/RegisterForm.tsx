@@ -254,7 +254,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isModal = false, onS
           {errors.phonenumber && <div className="invalid-feedback">{errors.phonenumber.message}</div>}
         </div>
 
-        <button type="submit" className="btn btn-pinterest w-100 mb-3" disabled={isPending}>
+        <button type="submit" className="btn btn-pinterest w-100 mb-3 bg-danger" disabled={isPending}>
           {isPending ? 'Đang đăng ký...' : 'Đăng ký ngay'}
         </button>
       </form>

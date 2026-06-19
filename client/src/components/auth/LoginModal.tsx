@@ -22,6 +22,18 @@ export const LoginModal: React.FC<LoginModalProps> = ({ show, onClose, onSwitchT
               onSwitchToRegister={onSwitchToRegister} // Truyền hàm chuyển đổi modal
               onLoginSuccess={onLoginSuccess} // Truyền hàm đóng modal sau khi đăng nhập thành công
             />
+            
+            {/* Thêm lại dòng chữ chuyển đổi sang Đăng ký */}
+            <div className="text-center mt-3 pb-3">
+              <span className="text-muted small">Bạn chưa có tài khoản? </span>
+              <button 
+                type="button" 
+                className="btn btn-link p-0 text-danger small text-decoration-none fw-bold"
+                onClick={onSwitchToRegister}
+              >
+                Đăng ký ngay
+              </button>
+            </div>
           </div>
         </div>
       </div>

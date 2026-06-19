@@ -1,11 +1,24 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import axios from 'axios';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
-
+import { CategoryProducts } from '@/components/products/CategoryProducts'; // Import the new CategoryProducts component
+import { FlashSale } from '@/components/products/FlashSale'; // Import the new FlashSale component
+import { useCountdown } from '@/hooks/useCountdown';
+import { jwtDecode } from 'jwt-decode';
 import { Product } from '@/types/product';
 import { productService } from '@/features/products/services/productService';
+
+// Import local images
+import iphone1 from '@/assets/images/iphone-17-pro-max-3.webp';
+import iphone2 from '@/assets/images/iphone-17-pro-max_3.webp';
+import iphone3 from '@/assets/images/iphone-17-pro-max-1_4.webp';
+import iphone4 from '@/assets/images/iphone-17-pro-max_1_3.webp';
+
+const localImages = [iphone1, iphone2, iphone3, iphone4];
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
 
 // Định nghĩa kiểu dữ liệu cho Category
 interface Category {
@@ -23,104 +36,28 @@ interface CategoryApiResponse {
   };
 }
 
-// Sử dụng một pixel trong suốt Base64 làm placeholder
-const TRANSPARENT_PIXEL = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-
-// CSS tùy chỉnh từ HomePage.html
-const customStyles = `
-    body { font-family: 'Inter', sans-serif; background-color: #f4f7f9; color: #333; }
-    .navbar { background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    .sidebar-menu { background: white; border-radius: 1rem; padding: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    .sidebar-item { padding: 12px; display: flex; align-items: center; cursor: pointer; border-radius: 0.5rem; transition: 0.2s; position: relative; z-index: 10; } /* Thêm position: relative và z-index */
-    .sidebar-item:hover { background: #fff5f5; color: #e31a1a; }
-    .hero-banner { background: #ddd; border-radius: 1rem; min-height: 350px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-    .user-panel { background: white; border-radius: 1rem; padding: 15px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-
-    /* Product Cards */
-    .card-product { border: none; border-radius: 1rem; transition: all 0.3s ease; height: 100%; background: #fff; }
-    .card-product:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.1); }
-    .price { color: #e31a1a; font-weight: 700; }
-
-    /* Flashsale Styles */
-    .flashsale-wrapper { background-color: #d32f2f; border-radius: 1rem; padding: 2rem; color: white; }
-    .countdown-box { background: black; color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-weight: bold; }
-
-    /* Reviews */
-    .review-card { background: white; padding: 1.5rem; border-radius: 1rem; border: 1px solid #eee; transition: 0.3s; }
-    .review-card:hover { border-color: #e31a1a; }
-    .star-rating { color: #ffc107; }
-
-    /* Category Hover Card */
-    .category-hover-card {
-      position: absolute;
-      left: 100%; /* Đặt bên phải của sidebar-item */
-      top: 0;
-      width: 300px; /* Chiều rộng của popup */
-      background: white;
-      border-radius: 1rem;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-      padding: 1rem;
-      margin-left: 10px; /* Khoảng cách từ sidebar */
-      z-index: 100; /* Đảm bảo nó nằm trên các phần tử khác */
-      display: none; /* Mặc định ẩn */
-    }
-    .sidebar-item:hover .category-hover-card {
-      display: block; /* Hiện khi hover */
-    }
-`;
-
-
 export const UserHomePage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
+  const [hoveredCategoryId, setHoveredCategoryId] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   // State để điều khiển modal
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
 
-  // State cho Flash Sale Countdown
-  const [countdown, setCountdown] = useState({ hours: 0, minutes: 0, seconds: 0 });
+  // Sử dụng custom hook cho Countdown (1 giờ)
+  const countdown = useCountdown(1);
 
-  // Inject custom styles
-  useEffect(() => {
-    const styleSheet = document.createElement("style");
-    styleSheet.type = "text/css";
-    styleSheet.innerText = customStyles;
-    document.head.appendChild(styleSheet);
+  // State cho trạng thái đăng nhập
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loggedInUsername, setLoggedInUsername] = useState<string | null>(null);
+  const [role, setRole] = useState<string | null>(null);
 
-    return () => {
-      document.head.removeChild(styleSheet);
-    };
-  }, []);
-
-  // Logic Countdown
-  useEffect(() => {
-    const flashSaleEndTime = new Date();
-    flashSaleEndTime.setHours(flashSaleEndTime.getHours() + 1); // Flash sale kết thúc sau 1 giờ
-
-    const interval = setInterval(() => {
-      const now = new Date().getTime();
-      const distance = flashSaleEndTime.getTime() - now;
-
-      const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-
-      if (distance < 0) {
-        clearInterval(interval);
-        setCountdown({ hours: 0, minutes: 0, seconds: 0 });
-      } else {
-        setCountdown({ hours, minutes, seconds });
-      }
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-
+  // Hàm kiểm tra trạng thái đăng nhập từ localStorage
   const fetchProducts = useCallback(async (categoryId: string | null = null) => {
     setLoading(true);
     setError(null);
@@ -133,23 +70,60 @@ export const UserHomePage: React.FC = () => {
         ?? productsResponse.data.categories?.flatMap(category => category.products)
         ?? [];
 
-      setProducts(fetchedProducts);
+      // Gán hình ảnh cục bộ cho sản phẩm
+      const productsWithLocalImages = fetchedProducts.map((product, index) => ({
+        ...product,
+        image_url: (product.image_url && !product.image_url.includes('placeholder'))
+                     ? product.image_url
+                     : localImages[index % localImages.length]
+      }));
+
+      setProducts(productsWithLocalImages);
 
     } catch (err) {
       setError('Failed to fetch products. Please try again later.');
-      console.error('Error fetching products:', err);
     } finally {
       setLoading(false);
     }
   }, []);
+// Trong UserHomePage
+  const checkLoginStatus = useCallback(() => {
+    const token = localStorage.getItem('access_token');
+    const username = localStorage.getItem('username');
 
+    if (token) {
+      try {
+        const decoded: any = jwtDecode(token);
+        const userRole = (decoded?.role || decoded?.user?.role || '').toLowerCase();
+
+        setIsLoggedIn(true);
+        setLoggedInUsername(username);
+        setRole(userRole);
+      } catch (e) {
+        // Token lỗi -> Xóa sạch
+        handleLogout();
+      }
+    } else {
+      setIsLoggedIn(false);
+      setRole(null);
+    }
+  }, []);
+  // Tự động điều hướng nếu là Admin khi vào trang chủ
+  useEffect(() => {
+    if (role && role.toLowerCase().trim() === 'admin') {
+      navigate('/admin');
+    }
+  }, [role, navigate]);
+
+  useEffect(() => {
+    checkLoginStatus();
+  }, [checkLoginStatus]); // Bây giờ nó sẽ chỉ chạy 1 lần khi component mount
   const fetchCategories = useCallback(async () => {
     try {
-      const categoriesResponse = await axios.get<CategoryApiResponse>('http://localhost:8090/api/categories');
+      const categoriesResponse = await axios.get<CategoryApiResponse>(`${API_BASE_URL}/api/categories`);
       setCategories(categoriesResponse.data.data.categories);
     } catch (err) {
       setError('Failed to fetch categories. Please try again later.');
-      console.error('Error fetching categories:', err);
     }
   }, []);
 
@@ -157,33 +131,76 @@ export const UserHomePage: React.FC = () => {
     fetchCategories();
   }, [fetchCategories]);
 
+// 2. Product Update (runs only when category changes)
   useEffect(() => {
     fetchProducts(selectedCategoryId);
   }, [fetchProducts, selectedCategoryId]);
-
   const handleCategoryClick = (categoryId: string | null) => {
     setSelectedCategoryId(categoryId);
   };
 
-  // Hàm mở/đóng modal
+  // Modal handlers
   const handleShowLoginModal = () => { setShowLoginModal(true); setShowRegisterModal(false); };
   const handleCloseLoginModal = () => setShowLoginModal(false);
   const handleShowRegisterModal = () => { setShowRegisterModal(true); setShowLoginModal(false); };
   const handleCloseRegisterModal = () => setShowRegisterModal(false);
+  const handleSwitchToRegister = () => { setShowLoginModal(false); setShowRegisterModal(true); };
+  const handleSwitchToLogin = () => { setShowRegisterModal(false); setShowLoginModal(true); };
 
-  // Chuyển đổi giữa các modal
-  const handleSwitchToRegister = () => {
-    setShowLoginModal(false);
-    setShowRegisterModal(true);
+  // Hàm xử lý đăng xuất
+  const handleLogout = () => {
+    // Xóa sạch tất cả các key liên quan đến auth
+    const keysToRemove = ['token', 'access_token', 'username', 'role'];
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    
+    setRole(null);
+    setLoggedInUsername(null);
+    checkLoginStatus();
   };
 
-  const handleSwitchToLogin = () => {
-    setShowRegisterModal(false);
-    setShowLoginModal(true);
+  // Hàm gọi sau khi đăng nhập thành công
+  const handleLoginSuccess = () => {
+    // 1. Đóng modal trước
+    handleCloseLoginModal();
+
+    // 2. Cập nhật state ngay lập tức
+    checkLoginStatus();
+
+    // 3. Sử dụng setTimeout để đợi state cập nhật xong mới điều hướng
+    setTimeout(() => {
+      const token = localStorage.getItem('access_token');
+      if (token) {
+        const decoded: any = jwtDecode(token);
+        const userRole = (decoded?.role || decoded?.user?.role || '').toLowerCase();
+
+        if (userRole === 'admin') {
+          navigate('/admin', { replace: true });
+        } else {
+          // Thay vì navigate('/'), hãy dùng window.location.reload()
+          // hoặc force refresh để UI cập nhật trạng thái đăng nhập
+          window.location.reload();
+        }
+      }
+    }, 100);
+  }
+  // Hàm gọi sau khi đăng ký thành công
+  const handleRegisterSuccess = () => {
+    handleCloseRegisterModal(); // Đóng modal
+    checkLoginStatus(); // Cập nhật trạng thái đăng nhập
   };
 
 
-  if (loading) {
+  // Tối ưu hiệu năng: Sử dụng useMemo để tránh việc lọc lại sản phẩm mỗi khi countdown chạy
+  const hoveredProducts = useMemo(() => {
+    if (hoveredCategoryId === null && categories.length > 0) {
+      const firstCategoryId = categories[0]._id;
+      return products.filter(p => p.cate_id === firstCategoryId).slice(0, 8);
+    }
+    return products.filter(p => p.cate_id === hoveredCategoryId).slice(0, 8);
+  }, [products, hoveredCategoryId, categories]);
+
+  // Loading state
+  if (loading && products.length === 0) { // Chỉ hiển thị loading nếu chưa có sản phẩm nào được tải
     return (
       <div className="d-flex flex-column min-vh-100 bg-light text-dark justify-content-center align-items-center">
         <div className="spinner-border text-danger" role="status">
@@ -209,39 +226,109 @@ export const UserHomePage: React.FC = () => {
     <div className="d-flex flex-column min-vh-100">
       {/* Navbar */}
       <nav className="navbar navbar-expand-lg sticky-top mb-4">
-        <div className="container">
-          <Link className="navbar-brand fw-bold fs-3 text-danger" to="/">Electro<span className="text-dark">Store</span></Link>
-          <div className="d-flex mx-auto w-50">
-            <input className="form-control me-2 rounded-pill" type="search" placeholder="Tìm kiếm sản phẩm..." />
+        <div className="container d-flex flex-wrap justify-content-between align-items-center">
+          <div className="d-flex justify-content-between align-items-center w-100">
+            <Link className="navbar-brand fw-bold fs-3 text-danger" to="/">Electro<span className="text-dark">Store</span></Link>
+            <div className="d-flex gap-3">
+              <Link to="/cart" className="text-dark"><i className="bi bi-cart3 fs-4"></i></Link>
+              {isLoggedIn ? (
+                <div className="dropdown">
+                  <a className="nav-link dropdown-toggle text-dark d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i className="bi bi-person fs-4 me-2"></i>
+                    {loggedInUsername}
+                  </a>
+                  <ul className="dropdown-menu" aria-labelledby="navbarDropdown">
+                    <li><Link className="dropdown-item" to="/profile">Thông tin cá nhân</Link></li>
+                    <li><Link className="dropdown-item" to="/my-orders">Đơn hàng của tôi</Link></li>
+                    <li><hr className="dropdown-divider" /></li>
+                    <li><a className="dropdown-item" href="#" onClick={handleLogout}>Đăng xuất</a></li>
+                  </ul>
+                </div>
+              ) : (
+                <a href="#" className="text-dark" onClick={handleShowLoginModal}><i className="bi bi-person fs-4"></i></a>
+              )}
+            </div>
           </div>
-          <div className="d-flex gap-3">
-            <Link to="/cart" className="text-dark"><i className="bi bi-cart3 fs-4"></i></Link>
-            <a href="#" className="text-dark" onClick={handleShowLoginModal}><i className="bi bi-person fs-4"></i></a>
+          <div className="w-100 mt-2 mt-lg-0">
+            <input className="form-control rounded-pill" type="search" placeholder="Tìm kiếm sản phẩm..." />
           </div>
         </div>
       </nav>
 
-      <div className="container pb-5 flex-grow-1"> {/* Thêm flex-grow-1 */}
+      <div className="container pb-5 flex-grow-1">
 
-        {/* Hero Section: Sidebar + Banner + User Info */}
-        <div className="row g-3 mb-5">
-          <div className="col-lg-2">
-            <div className="sidebar-menu">
-              {/* "Tất cả sản phẩm" link */}
-              <div
-                className={`sidebar-item ${selectedCategoryId === null ? 'active' : ''}`}
-                onClick={() => handleCategoryClick(null)}
-              >
+        {/* Hero Section */}
+        <div className="row g-3 mb-5" style={{ minHeight: '350px' }}>
+          <div className="col-lg-8 col-md-12 d-flex flex-column">
+            <div className="hero-banner h-100 flex-grow-1">
+              {hoveredCategoryId !== null ? (
+                <div className="container-fluid h-100 d-flex flex-column justify-content-center align-items-center p-3">
+                  <h5 className="fw-bold mb-3">Sản phẩm thuộc danh mục: {categories.find(cat => cat._id === hoveredCategoryId)?.name || 'Tất cả sản phẩm'}</h5>
+                  {hoveredProducts.length > 0 ? (
+                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+                      {hoveredProducts.map(product => (
+                        <div className="col" key={product._id}>
+                          <Link to={`/product/${product._id}`} className="text-decoration-none text-dark">
+                            <div className="card card-product p-2 text-center h-100 d-flex flex-column justify-content-between">
+                              <img src={product.image_url} className="card-img-top mx-auto" alt={product.name} style={{ height: '100px', objectFit: 'contain', width: 'auto' }} />
+                              <div>
+                                <p className="small mt-2 mb-1 text-truncate">{product.name}</p>
+                                <div className="price">{product.price.toLocaleString()}đ</div>
+                              </div>
+                            </div>
+                          </Link>
+                        </div>
+                      ))}
+                    </div>
+                  ) : <p className="text-muted">Không có sản phẩm nào.</p>}
+                  <div className="mt-3"><p></p></div>
+                </div>
+              ) : (
+                <img src="https://placehold.co/700x350/ddd/333?text=Banner+Chính" alt="Main Banner" className="img-fluid h-100 w-100" style={{ objectFit: 'cover' }} />
+              )}
+            </div>
+          </div>
+          <div className="col-lg-4 col-md-12 d-flex flex-column">
+            <div className="d-flex flex-column h-100 gap-3">
+              <div className="user-panel flex-fill d-flex flex-column justify-content-center">
+                {isLoggedIn ? (
+                  <div className="d-flex align-items-center flex-column">
+                    <i className="bi bi-person-circle fs-2 text-secondary mb-2"></i>
+                    <div className="small text-center">Chào mừng, <br /><strong>{loggedInUsername}</strong></div>
+                    <button className="btn btn-outline-danger w-100 btn-sm mt-3" onClick={handleLogout}>Đăng xuất</button>
+                  </div>
+                ) : (
+                  <>
+                    <div className="d-flex align-items-center mb-3">
+                      <i className="bi bi-person-circle fs-2 text-secondary"></i>
+                      <div className="ms-2 small">Chào mừng bạn đến với <br /><strong>ElectroStore</strong></div>
+                    </div>
+
+                    <button className="btn btn-outline-danger w-100 btn-sm mt-auto" onClick={ isLoggedIn ? handleLogout : handleShowLoginModal}> {isLoggedIn ? "Đăng xuất" : "Đăng nhập"}</button>
+                  </>
+                )}
+              </div>
+              <div className="user-panel flex-fill d-flex flex-column justify-content-center">
+                <p className="fw-bold mb-3 small">Ưu đãi cho bạn</p>
+                <ul className="list-unstyled small text-muted mb-0">
+                  <li className="mb-2"><i className="bi bi-book me-2"></i> Ưu đãi giáo dục</li>
+                  <li className="mb-2"><i className="bi bi-fire me-2"></i> Deal hot mỗi ngày</li>
+                  <li><i className="bi bi-arrow-repeat me-2"></i> Thu cũ đổi mới</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Category Menu */}
+        <div className="row g-3 mb-4">
+          <div className="col-12">
+            <div className="sidebar-menu d-flex flex-wrap justify-content-start gap-2 p-3">
+              <div className={`sidebar-item ${selectedCategoryId === null ? 'active' : ''}`} onClick={() => handleCategoryClick(null)}>
                 <i className="bi bi-grid me-2"></i> Tất cả sản phẩm
               </div>
-              {/* Category links */}
               {categories.map(category => (
-                <div
-                  key={category._id}
-                  className={`sidebar-item ${selectedCategoryId === category._id ? 'active' : ''}`}
-                  onClick={() => handleCategoryClick(category._id)}
-                >
-                  {/* Icon động dựa trên category.name hoặc một icon mặc định */}
+                <div key={category._id} className={`sidebar-item ${selectedCategoryId === category._id ? 'active' : ''}`} onClick={() => handleCategoryClick(category._id)}>
                   <i className={`bi ${
                     category.name.includes('Điện thoại') ? 'bi-phone' :
                     category.name.includes('Laptop') ? 'bi-laptop' :
@@ -249,77 +336,36 @@ export const UserHomePage: React.FC = () => {
                     category.name.includes('Đồng hồ') || category.name.includes('Camera') ? 'bi-watch' :
                     category.name.includes('Gia dụng') ? 'bi-house-door' :
                     category.name.includes('Phụ kiện') ? 'bi-plug' :
-                    'bi-tag' // Icon mặc định
+                    'bi-tag'
                   } me-2`}></i> {category.name}
                 </div>
               ))}
             </div>
           </div>
-          <div className="col-lg-7">
-            <div className="hero-banner">
-              <img src="https://placehold.co/700x350/ddd/333?text=Banner+Chính" alt="Main Banner" className="img-fluid" />
-            </div>
-          </div>
-          <div className="col-lg-3">
-            <div className="user-panel mb-3">
-              <div className="d-flex align-items-center mb-2">
-                <i className="bi bi-person-circle fs-2 text-secondary"></i>
-                <div className="ms-2 small">Chào mừng bạn đến với <br /><strong>ElectroStore</strong></div>
-              </div>
-              <button className="btn btn-outline-danger w-100 btn-sm" onClick={handleShowLoginModal}>Đăng nhập</button>
-            </div>
-            <div className="user-panel">
-              <p className="fw-bold mb-2 small">Ưu đãi cho bạn</p>
-              <ul className="list-unstyled small text-muted">
-                <li><i className="bi bi-book me-2"></i> Ưu đãi giáo dục</li>
-                <li><i className="bi bi-fire me-2"></i> Deal hot mỗi ngày</li>
-                <li><i className="bi bi-arrow-repeat me-2"></i> Thu cũ đổi mới</li>
-              </ul>
-            </div>
-          </div>
         </div>
+
+        {/* Category Products Section */}
+        <CategoryProducts categoryId={selectedCategoryId} categories={categories} products={products} />
 
         <div className="mb-5 bg-danger p-3 rounded-3 text-center text-white">
           <h5>🔥 TÙNG TÙNG DEAL KHỦNG - GIẢM ĐẾN 50% - MUA NGAY 🔥</h5>
         </div>
 
-        {/* Flashsale */}
-        <div className="flashsale-wrapper mb-5">
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h3 className="fw-bold text-white">🔥 FLASH SALE</h3>
-            <div className="d-flex align-items-center gap-2">
-              <span className="text-white opacity-75">Kết thúc sau:</span>
-              <div className="countdown-box">{countdown.hours.toString().padStart(2, '0')}</div> :
-              <div className="countdown-box">{countdown.minutes.toString().padStart(2, '0')}</div> :
-              <div className="countdown-box">{countdown.seconds.toString().padStart(2, '0')}</div>
-            </div>
-          </div>
-          <div className="row row-cols-1 row-cols-md-5 g-3">
-            {products.slice(0, 5).map(product => ( // Lấy 5 sản phẩm đầu tiên cho flash sale
-              <div className="col" key={product._id}>
-                <Link to={`/product/${product._id}`} className="text-decoration-none text-dark">
-                  <div className="card card-product p-3 text-center">
-                    <img src={product.image_url} className="card-img-top" alt={product.name} style={{ height: '150px', objectFit: 'contain' }} />
-                    <p className="small mt-2 mb-1 text-truncate">{product.name}</p>
-                    <div className="price">{product.price.toLocaleString()}đ</div>
-                  </div>
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Flashsale Section */}
+        <FlashSale products={products} countdown={countdown} />
 
-        {/* Product List Section (TIVI NỔI BẬT) */}
-        <h4 className="fw-bold mb-4">SẢN PHẨM NỔI BẬT</h4> {/* Đổi tên tiêu đề */}
+        {/* Hot Products Section */}
+        <h4 className="fw-bold mb-4">SẢN PHẨM HOT</h4>
         <div className="row g-4 mb-5">
-          <div className="col-lg-2">
+          <div className="col-lg-2 d-none d-lg-block">
             <div className="bg-dark text-white rounded-3 p-4 h-100 d-flex flex-column justify-content-center text-center">
               <h5>SẢN PHẨM HOT</h5>
+              <p className="small text-muted">Ưu đãi độc quyền</p>
             </div>
           </div>
           <div className="col-lg-10">
             <div className="row row-cols-1 row-cols-md-4 g-4">
-              {products.slice(5, 9).map(product => ( // Lấy 4 sản phẩm tiếp theo
+              {products.slice(0, 4).map(product => (
                 <div className="col" key={product._id}>
                   <Link to={`/product/${product._id}`} className="text-decoration-none text-dark">
                     <div className="card card-product p-3">
@@ -339,95 +385,80 @@ export const UserHomePage: React.FC = () => {
         {/* Customer Reviews */}
         <h4 className="fw-bold mb-4">ĐÁNH GIÁ CỦA KHÁCH HÀNG</h4>
         <div className="row g-4">
+          {/* Đánh giá 1 */}
           <div className="col-md-4">
-            <div className="review-card">
-              <div className="star-rating mb-2">
-                <i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i>
+            <div className="card h-100 border-0 shadow-sm p-3">
+              <div className="d-flex align-items-center mb-3">
+                <div className="bg-secondary rounded-circle me-3" style={{width: '40px', height: '40px'}}></div>
+                <div>
+                  <h6 className="mb-0">Nguyễn Văn A</h6>
+                  <div className="text-warning small">★★★★★</div>
+                </div>
               </div>
-              <p className="small">"Sản phẩm cực kỳ chất lượng, giao hàng nhanh chóng. Sẽ ủng hộ shop dài lâu!"</p>
-              <div className="d-flex align-items-center mt-3">
-                <div className="bg-secondary text-white rounded-circle p-2 me-2" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>NV</div>
-                <small className="fw-bold">Nguyễn Văn A</small>
-              </div>
+              <p className="card-text text-muted">Sản phẩm rất chất lượng, đóng gói kỹ càng và giao hàng nhanh chóng. Rất hài lòng!</p>
             </div>
           </div>
+
+          {/* Đánh giá 2 */}
           <div className="col-md-4">
-            <div className="review-card">
-              <div className="star-rating mb-2">
-                <i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i>
+            <div className="card h-100 border-0 shadow-sm p-3">
+              <div className="d-flex align-items-center mb-3">
+                <div className="bg-secondary rounded-circle me-3" style={{width: '40px', height: '40px'}}></div>
+                <div>
+                  <h6 className="mb-0">Trần Thị B</h6>
+                  <div className="text-warning small">★★★★☆</div>
+                </div>
               </div>
-              <p className="small">"Giá cả hợp lý, nhân viên hỗ trợ nhiệt tình. Rất hài lòng với chiếc tivi mới mua."</p>
-              <div className="d-flex align-items-center mt-3">
-                <div className="bg-secondary text-white rounded-circle p-2 me-2" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>TT</div>
-                <small className="fw-bold">Trần Thị B</small>
-              </div>
+              <p className="card-text text-muted">Giá cả hợp lý, nhân viên tư vấn nhiệt tình. Sẽ ủng hộ shop thêm nhiều lần nữa.</p>
             </div>
           </div>
+
+          {/* Đánh giá 3 */}
           <div className="col-md-4">
-            <div className="review-card">
-              <div className="star-rating mb-2">
-                <i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i><i className="bi bi-star-fill"></i>
+            <div className="card h-100 border-0 shadow-sm p-3">
+              <div className="d-flex align-items-center mb-3">
+                <div className="bg-secondary rounded-circle me-3" style={{width: '40px', height: '40px'}}></div>
+                <div>
+                  <h6 className="mb-0">Lê Văn C</h6>
+                  <div className="text-warning small">★★★★★</div>
+                </div>
               </div>
-              <p className="small">"Tuyệt vời! Hàng chính hãng, đóng gói cẩn thận. Cảm ơn shop!"</p>
-              <div className="d-flex align-items-center mt-3">
-                <div className="bg-secondary text-white rounded-circle p-2 me-2" style={{ width: '40px', height: '40px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>LM</div>
-                <small className="fw-bold">Lê Minh C</small>
-              </div>
+              <p className="card-text text-muted">Hàng giống mô tả 100%, chất liệu tốt. Cảm ơn shop rất nhiều vì món quà nhỏ đi kèm.</p>
             </div>
           </div>
         </div>
-
       </div>
 
       {/* Footer */}
-      <footer className="bg-dark text-white mt-4 py-4">
-        <div className="container mx-auto px-4 row row-cols-2 row-cols-md-4 g-3 fs-6">
-          <div className="col">
-            <h4 className="fw-bold mb-3">Về chúng tôi</h4>
-            <ul className="list-unstyled text-secondary">
-              <li>Giới thiệu</li>
-              <li>Tuyển dụng</li>
-              <li>Liên hệ</li>
-            </ul>
-          </div>
-          <div className="col">
-            <h4 className="fw-bold mb-3">Chính sách</h4>
-            <ul className="list-unstyled text-secondary">
-              <li>Bảo hành</li>
-              <li>Đổi trả</li>
-              <li>Giao hàng</li>
-            </ul>
-          </div>
-          <div className="col">
-            <h4 className="fw-bold mb-3">Tổng đài</h4>
-            <div className="text-secondary">1800 1060</div>
-            <div className="text-secondary mt-2 fs-7">Thời gian: 8:00 - 22:00</div>
-          </div>
-          <div className="col">
-            <h4 className="fw-bold mb-3">Kết nối</h4>
-            <div className="d-flex gap-2">
-              <div className="bg-secondary rounded-circle d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px' }}>f</div>
-              <div className="bg-secondary rounded-circle d-flex align-items-center justify-content-center" style={{ width: '32px', height: '32px' }}>yt</div>
+      <footer className="bg-dark text-white mt-4 py-5">
+        <div className="container">
+          <div className="row">
+            <div className="col-md-4">
+              <h5>VỀ CHÚNG TÔI</h5>
+              <p className="small">Chuyên cung cấp các sản phẩm chất lượng cao với dịch vụ tận tâm nhất.</p>
             </div>
+            <div className="col-md-4">
+              <h5>LIÊN KẾT NHANH</h5>
+              <ul className="list-unstyled">
+                <li><a href="#" className="text-white text-decoration-none">Chính sách bảo mật</a></li>
+                <li><a href="#" className="text-white text-decoration-none">Điều khoản sử dụng</a></li>
+              </ul>
+            </div>
+            <div className="col-md-4">
+              <h5>THÔNG TIN LIÊN HỆ</h5>
+              <p className="small">Email: support@example.com<br />Hotline: 1900 xxxx</p>
+            </div>
+          </div>
+          <hr className="my-4" />
+          <div className="text-center small">
+            &copy; 2026 Bản quyền thuộc về thương hiệu của bạn.
           </div>
         </div>
       </footer>
 
-      {/* Login Modal */}
-      <LoginModal
-        show={showLoginModal}
-        onClose={handleCloseLoginModal}
-        onSwitchToRegister={handleSwitchToRegister}
-        onLoginSuccess={handleCloseLoginModal}
-      />
-
-      {/* Register Modal */}
-      <RegisterModal
-        show={showRegisterModal}
-        onClose={handleCloseRegisterModal}
-        onSwitchToLogin={handleSwitchToLogin}
-        onRegisterSuccess={handleCloseRegisterModal}
-      />
+      {/* Modals */}
+      <LoginModal show={showLoginModal} onClose={handleCloseLoginModal} onSwitchToRegister={handleSwitchToRegister} onLoginSuccess={handleLoginSuccess} />
+      <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleRegisterSuccess} />
     </div>
   );
 };
