@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import axios from 'axios';
 import { CustomHeader } from '@/components/layout/Header'; // Sử dụng CustomHeader đã refactor sang Bootstrap
-import { Product } from '@/types/product'; // Import kiểu Product
+import { Product } from '@/types/product';
+import axiosClient from "@/api/axiosClient"; // Import kiểu Product
+import { jwtDecode } from 'jwt-decode'; // Đã sửa lỗi import: sử dụng named import { jwtDecode }
 
 // Định nghĩa kiểu dữ liệu cho Product Detail API Response
 interface ProductDetailApiResponse {
@@ -41,12 +42,65 @@ const customStyles = `
   .card-border { border: 1px solid #e0e0e0; border-radius: 12px; }
 `;
 
-export const ProductDetailPage: React.FC = () => { // Đã xóa ({product}: ProductDetailPageProps)
-  const { id } = useParams<{ id: string }>(); // Lấy product ID từ URL
+interface AuthUser {
+  _id: string;
+  username: string;
+  role: string;
+  // Thêm các thuộc tính khác nếu có trong payload của token
+}
+
+interface AuthContextType {
+  user: AuthUser | null;
+  // other auth functions like login, logout
+}
+
+const useAuth = (): AuthContextType => {
+  const [user, setUser] = useState<AuthUser | null>(null);
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem('token'); // Đọc token từ localStorage
+    if (storedToken) {
+      try {
+        const decodedToken: any = jwtDecode(storedToken); // Đã sửa: sử dụng jwtDecode
+
+        // Kiểm tra thời gian hết hạn của token
+        if (decodedToken.exp * 1000 < Date.now()) {
+          console.log("Token đã hết hạn.");
+          localStorage.removeItem('token'); // Xóa token hết hạn
+          setUser(null);
+          return;
+        }
+
+        // Lấy thông tin người dùng từ payload đã giải mã
+        const authUser: AuthUser = {
+          _id: decodedToken.id, // Lấy id từ token
+          username: decodedToken.username,
+          role: decodedToken.role,
+          // Map các thuộc tính khác từ decodedToken nếu có
+        };
+        setUser(authUser);
+      } catch (e) {
+        console.error("Failed to decode token or parse user data", e);
+        localStorage.removeItem('token'); // Xóa token không hợp lệ
+        setUser(null);
+      }
+    }
+  }, []);
+
+  return { user };
+};
+// --- End of Placeholder ---
+
+
+export const ProductDetailPage: React.FC = () => {
+  const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
-  const [categories, setCategories] = useState<Category[]>([]); // Thêm state cho categories
+  const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Get userId from your authentication context
+  const { user } = useAuth(); // Sử dụng useAuth hook đã được cập nhật
 
   useEffect(() => {
     // Inject custom styles
@@ -64,12 +118,12 @@ export const ProductDetailPage: React.FC = () => { // Đã xóa ({product}: Prod
       try {
         setLoading(true);
         // Fetch product details
-        const productResponse = await axios.get<ProductDetailApiResponse>(`http://localhost:8090/api/products/${id}`);
+        const productResponse = await axiosClient.get<ProductDetailApiResponse>(`http://localhost:8090/api/products/${id}`);
         setProduct(productResponse.data.data);
         console.log('Fetched product details:', productResponse.data.data);
 
         // Fetch categories
-        const categoriesResponse = await axios.get<CategoryApiResponse>('http://localhost:8090/api/categories');
+        const categoriesResponse = await axiosClient.get<CategoryApiResponse>('http://localhost:8090/api/categories');
         setCategories(categoriesResponse.data.data.categories);
         console.log('Fetched categories:', categoriesResponse.data.data.categories);
 
@@ -87,6 +141,41 @@ export const ProductDetailPage: React.FC = () => { // Đã xóa ({product}: Prod
       document.head.removeChild(styleSheet); // Clean up styles on unmount
     };
   }, [id]);
+
+  const handleAddToCart = async () => {
+    if (!product) {
+      alert('Không thể thêm sản phẩm vào giỏ hàng vì thông tin sản phẩm không đầy đủ.');
+      return;
+    }
+
+    // Use user._id from the auth context
+    if (!user?._id) {
+      alert('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.');
+      // Bạn có thể chuyển hướng đến trang đăng nhập hoặc hiển thị modal đăng nhập ở đây
+      return;
+    }
+
+    try {
+      const response = await axiosClient.post('http://localhost:8090/api/cart/add', {
+        userId: user._id, // Sử dụng user._id đã lấy từ token
+        productId: product._id,
+        quantity: 1,
+        price: product.price,
+      });
+
+      if (response.data.success) {
+        alert('Sản phẩm đã được thêm vào giỏ hàng thành công!');
+        console.log('Add to cart successful:', response.data);
+        // Tùy chọn: cập nhật context giỏ hàng hoặc hiển thị thông báo
+      } else {
+        alert(`Lỗi khi thêm sản phẩm vào giỏ hàng: ${response.data.message}`);
+        console.error('Add to cart failed:', response.data.message);
+      }
+    } catch (err) {
+      console.error('Error adding product to cart:', err);
+      alert('Đã xảy ra lỗi khi thêm sản phẩm vào giỏ hàng. Vui lòng thử lại.');
+    }
+  };
 
   // Tìm tên danh mục dựa trên cate_id của sản phẩm
   // Sử dụng optional chaining an toàn hơn
@@ -174,7 +263,7 @@ export const ProductDetailPage: React.FC = () => { // Đã xóa ({product}: Prod
 
             {/* Action Buttons */}
             <div className="d-grid gap-2 mt-4">
-              <button className="btn btn-cps btn-lg">
+              <button className="btn btn-cps btn-lg" onClick={handleAddToCart}>
                 <i className="fas fa-shopping-cart me-2"></i> Thêm vào giỏ hàng
               </button>
               <button className="btn btn-outline-danger btn-lg">
