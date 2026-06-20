@@ -105,7 +105,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     setErrorCart(null);
     try {
       // Đã sửa: Truyền userId dưới dạng path parameter
-      const response = await axiosClient.get(`${API_BASE_URL}/api/cart/${userId}`);
+      const response = await axiosClient.get(`${API_BASE_URL}/cart/${userId}`);
       console.log("dữ liệu cart", response.data)
       if (response.data.success) {
         setCart(response.data.data);
@@ -126,7 +126,7 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const addToCartContext = async (userId: string, productId: string, quantity: number, price: number): Promise<boolean> => {
     try {
       // 1. Check product stock first
-      const productResponse = await axiosClient.get(`${API_BASE_URL}/api/products/${productId}`);
+      const productResponse = await axiosClient.get(`${API_BASE_URL}/products/${productId}`);
       const product = productResponse.data.data; // Assuming data structure is { success: true, data: productObject }
 
       if (!product || product.stock_quantity <= 0) {

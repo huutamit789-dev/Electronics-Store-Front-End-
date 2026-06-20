@@ -96,3 +96,47 @@ code {
   padding: 4px 8px;
   background: var(--code-bg);
 }
+
+/* Card sản phẩm tinh tế */
+.custom-product-card {
+  border-radius: 12px !important;
+  border: 1px solid #e9ecef !important;
+  transition: all 0.3s ease;
+  background: white;
+  padding: 15px;
+}
+
+.custom-product-card:hover {
+  box-shadow: 0 10px 20px rgba(0,0,0,0.1) !important;
+  border-color: #dee2e6 !important;
+}
+
+/* Định dạng chữ và giá */
+.product-title {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 8px;
+  height: 40px; /* Cố định chiều cao cho title để các card đều nhau */
+  overflow: hidden;
+}
+
+.product-price {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #d70018; /* Màu đỏ CellphoneS */
+  margin-bottom: 12px;
+}
+
+/* Nút "Thêm vào giỏ" */
+.btn-add-to-cart {
+  background-color: #f8f9fa !important;
+  color: #555 !important;
+  border: 1px solid #dee2e6 !important;
+  font-weight: 600;
+  font-size: 0.85rem !important;
+  border-radius: 8px !important;
+}
+.btn-add-to-cart:hover {
+  background-color: #e9ecef !important;
+}

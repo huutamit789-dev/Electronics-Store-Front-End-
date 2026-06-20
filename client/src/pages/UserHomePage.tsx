@@ -1,10 +1,10 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import axios from 'axios';
 import { Link, useNavigate } from 'react-router-dom';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
-import { CategoryProducts } from '@/components/products/CategoryProducts'; // Import the new CategoryProducts component
-import { FlashSale } from '@/components/products/FlashSale'; // Import the new FlashSale component
+import { CategoryProducts } from '@/components/products/CategoryProducts';
+import { FlashSale } from '@/components/products/FlashSale';
 import { useCountdown } from '@/hooks/useCountdown';
 import { jwtDecode } from 'jwt-decode';
 import { Product } from '@/types/product';
@@ -13,18 +13,15 @@ import { useAuthStore } from '@/store/useAuthStore';
 import { useLogout } from '@/features/auth/hooks/useAuth';
 import { useCartStore } from '@/store/useCartStore';
 import { CartItem } from '@/types/order';
-
+import '@/assets/UserHomePage.css';
 // Import local images
 import iphone1 from '@/assets/images/iphone-17-pro-max-3.webp';
 import iphone2 from '@/assets/images/iphone-17-pro-max_3.webp';
 import iphone3 from '@/assets/images/iphone-17-pro-max-1_4.webp';
 import iphone4 from '@/assets/images/iphone-17-pro-max_1_3.webp';
-
 const localImages = [iphone1, iphone2, iphone3, iphone4];
-
 const API_BASE_URL = import.meta.env.VITE_API_URL;
 
-// Định nghĩa kiểu dữ liệu cho Category
 interface Category {
   _id: string;
   name: string;
@@ -35,9 +32,7 @@ interface Category {
 interface CategoryApiResponse {
   success: boolean;
   message: string;
-  data: {
-    categories: Category[];
-  };
+  data: { categories: Category[] };
 }
 
 export const UserHomePage: React.FC = () => {
@@ -49,21 +44,28 @@ export const UserHomePage: React.FC = () => {
   const [hoveredCategoryId, setHoveredCategoryId] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  // State để điều khiển modal
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
 
-  // Sử dụng custom hook cho Countdown (1 giờ)
   const countdown = useCountdown(1);
-
-  // Sử dụng useAuthStore thay vì state riêng
   const { isLoggedIn, user } = useAuthStore();
   const { logout } = useLogout();
   const { addItem, getTotalItems } = useCartStore();
   const [role, setRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
-  // Hàm kiểm tra trạng thái đăng nhập từ localStorage
+const categoryScrollRef = useRef<HTMLDivElement>(null);
+
+  // 3. Hàm xử lý cuộn trái/phải
+  const scrollCategories = (direction: 'left' | 'right') => {
+    if (categoryScrollRef.current) {
+      const scrollAmount = 300; // Độ dài mỗi lần cuộn (pixel)
+      categoryScrollRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth' // Cuộn mượt
+      });
+    }
+  };
   const fetchProducts = useCallback(async (categoryId: string | null = null) => {
     setLoading(true);
     setError(null);
@@ -76,7 +78,6 @@ export const UserHomePage: React.FC = () => {
         ?? productsResponse.data.categories?.flatMap(category => category.products)
         ?? [];
 
-      // Gán hình ảnh cục bộ cho sản phẩm
       const productsWithLocalImages = fetchedProducts.map((product, index) => ({
         ...product,
         image_url: (product.image_url && !product.image_url.includes('placeholder'))
@@ -85,41 +86,36 @@ export const UserHomePage: React.FC = () => {
       }));
 
       setProducts(productsWithLocalImages);
-
     } catch (err) {
       setError('Failed to fetch products. Please try again later.');
     } finally {
       setLoading(false);
     }
   }, []);
-// Trong UserHomePage
+
   const checkLoginStatus = useCallback(() => {
     const token = localStorage.getItem('token');
-    const username = localStorage.getItem('username');
-
     if (token) {
       try {
         const decoded: any = jwtDecode(token);
         const userRole = (decoded?.role || decoded?.user?.role || '').toLowerCase();
         setRole(userRole);
       } catch (e) {
-        // Token lỗi -> Xóa sạch
         logout();
       }
     } else {
       setRole(null);
     }
   }, [logout]);
-  // Tự động điều hướng nếu là Admin khi vào trang chủ
+
   useEffect(() => {
     if (role && role.toLowerCase().trim() === 'admin') {
       navigate('/admin');
     }
   }, [role, navigate]);
 
-  useEffect(() => {
-    checkLoginStatus();
-  }, [checkLoginStatus]); // Bây giờ nó sẽ chỉ chạy 1 lần khi component mount
+  useEffect(() => { checkLoginStatus(); }, [checkLoginStatus]);
+
   const fetchCategories = useCallback(async () => {
     try {
       const categoriesResponse = await axios.get<CategoryApiResponse>(`${API_BASE_URL}/categories`);
@@ -129,19 +125,13 @@ export const UserHomePage: React.FC = () => {
     }
   }, []);
 
-  useEffect(() => {
-    fetchCategories();
-  }, [fetchCategories]);
+  useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
-// 2. Product Update (runs only when category changes)
-  useEffect(() => {
-    fetchProducts(selectedCategoryId);
-  }, [fetchProducts, selectedCategoryId]);
-  const handleCategoryClick = (categoryId: string | null) => {
-    setSelectedCategoryId(categoryId);
-  };
+  useEffect(() => { fetchProducts(selectedCategoryId); }, [fetchProducts, selectedCategoryId]);
 
-  // Modal handlers
+  const handleCategoryClick = (categoryId: string | null) => setSelectedCategoryId(categoryId);
+
+  // Modal Handlers
   const handleShowLoginModal = () => { setShowLoginModal(true); setShowRegisterModal(false); };
   const handleCloseLoginModal = () => setShowLoginModal(false);
   const handleShowRegisterModal = () => { setShowRegisterModal(true); setShowLoginModal(false); };
@@ -149,18 +139,9 @@ export const UserHomePage: React.FC = () => {
   const handleSwitchToRegister = () => { setShowLoginModal(false); setShowRegisterModal(true); };
   const handleSwitchToLogin = () => { setShowRegisterModal(false); setShowLoginModal(true); };
 
-  // Hàm xử lý đăng xuất
-  const handleLogout = () => {
-    logout();
-    setRole(null);
-  };
+  const handleLogout = () => { logout(); setRole(null); };
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value);
 
-  // Hàm xử lý tìm kiếm sản phẩm
-  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setSearchQuery(e.target.value);
-  };
-
-  // Lọc sản phẩm theo từ khóa tìm kiếm
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
     const query = searchQuery.toLowerCase();
@@ -171,7 +152,6 @@ export const UserHomePage: React.FC = () => {
     );
   }, [products, searchQuery]);
 
-  // Hàm thêm sản phẩm vào giỏ hàng
   const handleAddToCart = (product: Product) => {
     const cartItem: CartItem = {
       productId: product._id,
@@ -184,54 +164,32 @@ export const UserHomePage: React.FC = () => {
     alert(`Đã thêm ${product.name} vào giỏ hàng!`);
   };
 
-  // Hàm gọi sau khi đăng nhập thành công
   const handleLoginSuccess = () => {
-    // 1. Đóng modal trước
     handleCloseLoginModal();
-
-    // 2. Cập nhật state ngay lập tức
     checkLoginStatus();
-
-    // 3. Sử dụng setTimeout để đợi state cập nhật xong mới điều hướng
     setTimeout(() => {
       const token = localStorage.getItem('access_token');
       if (token) {
         const decoded: any = jwtDecode(token);
         const userRole = (decoded?.role || decoded?.user?.role || '').toLowerCase();
-
         if (userRole === 'admin') {
           navigate('/admin', { replace: true });
         } else {
-          // Thay vì navigate('/'), hãy dùng window.location.reload()
-          // hoặc force refresh để UI cập nhật trạng thái đăng nhập
           window.location.reload();
         }
       }
     }, 100);
-  }
-  // Hàm gọi sau khi đăng ký thành công
-  const handleRegisterSuccess = () => {
-    handleCloseRegisterModal(); // Đóng modal
-    checkLoginStatus(); // Cập nhật trạng thái đăng nhập
   };
 
+  const handleRegisterSuccess = () => {
+    handleCloseRegisterModal();
+    checkLoginStatus();
+  };
 
-  // Tối ưu hiệu năng: Sử dụng useMemo để tránh việc lọc lại sản phẩm mỗi khi countdown chạy
-  const hoveredProducts = useMemo(() => {
-    if (hoveredCategoryId === null && categories.length > 0) {
-      const firstCategoryId = categories[0]._id;
-      return products.filter(p => p.cate_id === firstCategoryId).slice(0, 8);
-    }
-    return products.filter(p => p.cate_id === hoveredCategoryId).slice(0, 8);
-  }, [products, hoveredCategoryId, categories]);
-
-  // Loading state
-  if (loading && products.length === 0) { // Chỉ hiển thị loading nếu chưa có sản phẩm nào được tải
+  if (loading && products.length === 0) {
     return (
       <div className="d-flex flex-column min-vh-100 bg-light text-dark justify-content-center align-items-center">
-        <div className="spinner-border text-danger" role="status">
-          <span className="visually-hidden">Loading...</span>
-        </div>
+        <div className="spinner-border text-danger" role="status"><span className="visually-hidden">Loading...</span></div>
         <p className="mt-3 fs-5">Đang tải dữ liệu...</p>
       </div>
     );
@@ -240,302 +198,271 @@ export const UserHomePage: React.FC = () => {
   if (error) {
     return (
       <div className="d-flex flex-column min-vh-100 bg-light text-dark justify-content-center align-items-center">
-        <div className="alert alert-danger" role="alert">
-          <h4 className="alert-heading">Lỗi!</h4>
-          <p>{error}</p>
-        </div>
+        <div className="alert alert-danger" role="alert"><h4 className="alert-heading">Lỗi!</h4><p>{error}</p></div>
       </div>
     );
   }
 
   return (
-    <div className="d-flex flex-column min-vh-100">
-      {/* Navbar */}
-      <nav className="navbar navbar-expand-lg sticky-top mb-4">
-        <div className="container d-flex flex-wrap justify-content-between align-items-center">
-          <div className="d-flex justify-content-between align-items-center w-100">
-            <Link className="navbar-brand fw-bold fs-3 text-danger" to="/">Electro<span className="text-dark">Store</span></Link>
-            <div className="d-flex gap-3">
-              <Link to="/cart" className="text-dark"><i className="bi bi-cart3 fs-4"></i></Link>
-              {isLoggedIn ? (
-                <div className="dropdown">
-                  <a className="nav-link dropdown-toggle text-dark d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i className="bi bi-person fs-4 me-2"></i>
-                    {user?.username}
-                  </a>
-                  <ul className="dropdown-menu" aria-labelledby="navbarDropdown">
-                    <li><Link className="dropdown-item" to="/profile">Thông tin cá nhân</Link></li>
-                    <li><Link className="dropdown-item" to="/my-orders">Đơn hàng của tôi</Link></li>
-                    <li><hr className="dropdown-divider" /></li>
-                    <li><a className="dropdown-item" href="#" onClick={handleLogout}>Đăng xuất</a></li>
-                  </ul>
-                </div>
-              ) : (
-                <a href="#" className="text-dark" onClick={handleShowLoginModal}><i className="bi bi-person fs-4"></i></a>
-              )}
-            </div>
-          </div>
-          <div className="w-100 mt-2 mt-lg-0">
-            <input
-              className="form-control rounded-pill"
-              type="search"
-              placeholder="Tìm kiếm sản phẩm..."
+    <div className="d-flex flex-column min-vh-100 bg-light">
+      
+      {/* Header (Màu đỏ CellphoneS) */}
+      <header className="bg-brand-red text-white sticky-top shadow-sm py-2 z-3">
+        <div className="container d-flex align-items-center gap-4">
+          <Link to="/" className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
+            <i className="bi bi-phone text-warning" style={{ transform: 'rotate(-15deg)' }}></i> ElectroStore
+          </Link>
+
+          <div className="flex-grow-1 position-relative d-none d-md-block">
+            <input 
+              type="text" 
+              placeholder="Tìm kiếm sản phẩm, thương hiệu..." 
+              className="form-control rounded-pill px-4 py-2 search-input shadow-inner"
               value={searchQuery}
               onChange={handleSearch}
             />
+            <i className="bi bi-search position-absolute text-muted" style={{ right: '15px', top: '10px' }}></i>
           </div>
-        </div>
-      </nav>
 
-      <div className="container pb-5 flex-grow-1">
-
-        {/* Hero Section */}
-        <div className="row g-3 mb-5" style={{ minHeight: '350px' }}>
-          <div className="col-lg-8 col-md-12 d-flex flex-column">
-            <div className="hero-banner h-100 flex-grow-1">
-              {hoveredCategoryId !== null ? (
-                <div className="container-fluid h-100 d-flex flex-column justify-content-center align-items-center p-3">
-                  <h5 className="fw-bold mb-3">Sản phẩm thuộc danh mục: {categories.find(cat => cat._id === hoveredCategoryId)?.name || 'Tất cả sản phẩm'}</h5>
-                  {hoveredProducts.length > 0 ? (
-                    <div className="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
-                      {hoveredProducts.map(product => (
-                        <div className="col" key={product._id}>
-                          <Link to={`/product/${product._id}`} className="text-decoration-none text-dark">
-                            <div className="card card-product p-2 text-center h-100 d-flex flex-column justify-content-between">
-                              <img src={product.image_url} className="card-img-top mx-auto" alt={product.name} style={{ height: '100px', objectFit: 'contain', width: 'auto' }} />
-                              <div>
-                                <p className="small mt-2 mb-1 text-truncate">{product.name}</p>
-                                <div className="price">{product.price.toLocaleString()}đ</div>
-                              </div>
-                            </div>
-                          </Link>
-                        </div>
-                      ))}
-                    </div>
-                  ) : <p className="text-muted">Không có sản phẩm nào.</p>}
-                  <div className="mt-3"><p></p></div>
-                </div>
-              ) : (
-                <img src="https://placehold.co/700x350/ddd/333?text=Banner+Chính" alt="Main Banner" className="img-fluid h-100 w-100" style={{ objectFit: 'cover' }} />
-              )}
-            </div>
-          </div>
-          <div className="col-lg-4 col-md-12 d-flex flex-column">
-            <div className="d-flex flex-column h-100 gap-3">
-              <div className="user-panel flex-fill d-flex flex-column justify-content-center">
-                {isLoggedIn ? (
-                  <div className="d-flex align-items-center flex-column">
-                    <i className="bi bi-person-circle fs-2 text-secondary mb-2"></i>
-                    <div className="small text-center">Chào mừng đến với<br /><strong>ElectroStore</strong></div>
-                    <div className="small text-center mt-2">Xin chào, <strong>{user?.username}</strong></div>
-                    <button className="btn btn-outline-danger w-100 btn-sm mt-3" onClick={handleLogout}>Đăng xuất</button>
-                  </div>
-                ) : (
-                  <>
-                    <div className="d-flex align-items-center mb-3">
-                      <i className="bi bi-person-circle fs-2 text-secondary"></i>
-                      <div className="ms-2 small">Chào mừng bạn đến với <br /><strong>ElectroStore</strong></div>
-                    </div>
-
-                    <button className="btn btn-outline-danger w-100 btn-sm mt-auto" onClick={handleShowLoginModal}>Đăng nhập</button>
-                  </>
+          <div className="d-flex align-items-center gap-4 ms-auto text-center">
+            <Link to="/cart" className="cursor-pointer text-white text-decoration-none hover-lift">
+              <i className="bi bi-cart3 fs-5 position-relative">
+                {getTotalItems() > 0 && (
+                  <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
+                    {getTotalItems()}
+                  </span>
                 )}
-              </div>
-              <div className="user-panel flex-fill d-flex flex-column justify-content-center">
-                <p className="fw-bold mb-3 small">Ưu đãi cho bạn</p>
-                <ul className="list-unstyled small text-muted mb-0">
-                  <li className="mb-2"><i className="bi bi-book me-2"></i> Ưu đãi giáo dục</li>
-                  <li className="mb-2"><i className="bi bi-fire me-2"></i> Deal hot mỗi ngày</li>
-                  <li><i className="bi bi-arrow-repeat me-2"></i> Thu cũ đổi mới</li>
+              </i>
+              <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Giỏ hàng</div>
+            </Link>
+            
+            {isLoggedIn ? (
+              <div className="dropdown cursor-pointer hover-lift">
+                <div data-bs-toggle="dropdown" aria-expanded="false" className="text-white text-decoration-none">
+                  <i className="bi bi-person-check fs-5"></i>
+                  <div style={{ fontSize: '10px', fontWeight: 'bold' }}>{user?.username}</div>
+                </div>
+                <ul className="dropdown-menu dropdown-menu-end shadow">
+                  <li><Link className="dropdown-item" to="/profile">Thông tin cá nhân</Link></li>
+                  <li><Link className="dropdown-item" to="/my-orders">Đơn hàng của tôi</Link></li>
+                  <li><hr className="dropdown-divider" /></li>
+                  <li><button className="dropdown-item text-danger" onClick={handleLogout}>Đăng xuất</button></li>
                 </ul>
               </div>
-            </div>
+            ) : (
+              <div className="cursor-pointer hover-lift" onClick={handleShowLoginModal}>
+                <i className="bi bi-person fs-5"></i>
+                <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Tài khoản</div>
+              </div>
+            )}
           </div>
         </div>
+      </header>
 
-        {/* Search Results Section */}
-        {searchQuery.trim() && (
-          <div className="row g-3 mb-4">
-            <div className="col-12">
-              <div className="card p-4">
-                <h5 className="fw-bold mb-3">Kết quả tìm kiếm: "{searchQuery}"</h5>
-                {filteredProducts.length > 0 ? (
-                  <div className="row row-cols-1 row-cols-md-4 g-4">
-                    {filteredProducts.map(product => (
-                      <div className="col" key={product._id}>
-                        <Link to={`/product/${product._id}`} className="text-decoration-none text-dark">
-                          <div className="card card-product p-3">
-                            <img src={product.image_url} className="card-img-top" alt={product.name} style={{ height: '200px', objectFit: 'contain' }} />
-                            <div className="card-body px-0">
-                              <p className="small text-truncate">{product.name}</p>
-                              <p className="price mb-0">{product.price.toLocaleString()}đ</p>
-                            </div>
-                          </div>
-                        </Link>
-                        <button 
-                          className="btn btn-danger w-100 mt-2 btn-sm" 
-                          onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}
-                        >
-                          Thêm vào giỏ
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="text-center py-5">
-                    <i className="bi bi-search fs-1 text-muted mb-3"></i>
-                    <p className="text-muted">Không tìm thấy sản phẩm nào phù hợp với "{searchQuery}"</p>
-                    <button className="btn btn-outline-danger btn-sm mt-2" onClick={() => setSearchQuery('')}>Xóa tìm kiếm</button>
-                  </div>
-                )}
+      {/* Navigation Bar (Danh mục) */}
+   {/* Navigation Bar (Danh mục kiểu Carousel) */}
+<nav className="bg-white border-bottom shadow-sm mb-4 position-relative">
+  <div className="container position-relative">
+    
+    {/* Nút cuộn sang trái */}
+    <button 
+      className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-none d-md-flex align-items-center justify-content-center hover-lift"
+      style={{ left: '-15px', width: '36px', height: '36px', padding: 0 }}
+      onClick={() => scrollCategories('left')}
+    >
+      <i className="bi bi-chevron-left text-secondary"></i>
+    </button>
+
+    {/* Khung chứa danh mục (Ẩn thanh cuộn) */}
+    <div 
+      ref={categoryScrollRef}
+      className="d-flex gap-4 overflow-auto scrollbar-hide text-nowrap py-2 px-3"
+      style={{ scrollBehavior: 'smooth' }}
+    >
+      <div 
+        className={`cursor-pointer text-secondary text-decoration-none fw-semibold d-flex align-items-center gap-2 hover-text-red ${selectedCategoryId === null ? 'text-brand-red' : ''}`} 
+        onClick={() => handleCategoryClick(null)}
+      >
+        <i className="bi bi-grid"></i> Tất cả
+      </div>
+      
+      {categories.map(category => (
+        <div 
+          key={category._id} 
+          className={`cursor-pointer text-secondary text-decoration-none fw-semibold d-flex align-items-center gap-2 hover-text-red transition ${selectedCategoryId === category._id ? 'text-brand-red' : ''}`} 
+          onClick={() => handleCategoryClick(category._id)}
+        >
+          <i className={`bi ${
+            category.name.includes('Điện thoại') ? 'bi-phone' :
+            category.name.includes('Laptop') ? 'bi-laptop' :
+            category.name.includes('Âm thanh') ? 'bi-headphones' :
+            category.name.includes('Đồng hồ') ? 'bi-smartwatch' :
+            category.name.includes('Máy tính bảng') ? 'bi-tablet' :
+            category.name.includes('Camera') ? 'bi-camera' :
+            category.name.includes('Gaming') ? 'bi-controller' :
+            'bi-tag'
+          }`}></i> {category.name}
+        </div>
+      ))}
+    </div>
+
+    {/* Nút cuộn sang phải */}
+    <button 
+      className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-none d-md-flex align-items-center justify-content-center hover-lift"
+      style={{ right: '-15px', width: '36px', height: '36px', padding: 0 }}
+      onClick={() => scrollCategories('right')}
+    >
+      <i className="bi bi-chevron-right text-secondary"></i>
+    </button>
+
+  </div>
+</nav>
+
+      <main className="container pb-5 flex-grow-1">
+
+        {/* Banners & Hero Section */}
+        <section className="row g-3 mb-5">
+          <div className="col-md-6">
+            <div className="card border-0 rounded-4 premium-shadow img-zoom-container h-100 text-white cursor-pointer overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1616348436168-de43ad0db179?w=1200&q=80" className="card-img h-100 object-fit-cover" alt="Main Banner" style={{ minHeight: '350px',height: '360px' }} />
+              <div className="card-img-overlay d-flex flex-column justify-content-end p-4" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
+                <h2 className="card-title fw-bold">Siêu phẩm công nghệ</h2>
+                <p className="card-text text-light">Mua sắm ngay với ngàn ưu đãi hấp dẫn.</p>
               </div>
             </div>
+          </div>
+          <div className="col-md-6 d-flex flex-column gap-3">
+            <div className="card border-0 rounded-4 premium-shadow img-zoom-container flex-grow-1 cursor-pointer overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1593642532400-2682810df593?w=600&q=80" className="card-img h-100 object-fit-cover" alt="Sub Banner 1" style={{ height: '174px' }} />
+            </div>
+            <div className="card border-0 rounded-4 premium-shadow img-zoom-container flex-grow-1 cursor-pointer overflow-hidden">
+              <img src="https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=600&q=80" className="card-img h-100 object-fit-cover" alt="Sub Banner 2" style={{ height: '174px' }}/>
+            </div>
+          </div>
+        </section>
+
+        {/* Trust Features */}
+        <section className="row row-cols-2 row-cols-md-4 g-3 mb-5">
+          {[
+            { icon: 'bi-truck', text: 'Giao hàng nhanh' },
+            { icon: 'bi-shield-check', text: 'Bảo hành 1 đổi 1' },
+            { icon: 'bi-check-circle', text: 'Chính hãng 100%' },
+            { icon: 'bi-credit-card', text: 'Trả góp 0%' }
+          ].map((item, idx) => (
+            <div className="col" key={idx}>
+              <div className="bg-white p-3 rounded-4 d-flex align-items-center gap-3 border shadow-sm h-100">
+                <i className={`bi ${item.icon} text-brand-red fs-4`}></i>
+                <div className="fs-6 fw-semibold">{item.text}</div>
+              </div>
+            </div>
+          ))}
+        </section>
+
+        {/* Kết quả tìm kiếm (Áp dụng UI mới) */}
+        {searchQuery.trim() && (
+          <div className="mb-5">
+            <h4 className="fw-bold mb-4">Kết quả tìm kiếm: "{searchQuery}"</h4>
+            {filteredProducts.length > 0 ? (
+              <div className="row row-cols-2 row-cols-md-4 g-4">
+                {filteredProducts.map(product => (
+                  <div className="col" key={product._id}>
+                    <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column">
+                      <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
+                        <img src={product.image_url} className="card-img-top rounded-3 object-fit-contain mb-3" height="180" alt={product.name} />
+                        <h6 className="fw-semibold text-truncate">{product.name}</h6>
+                        <div className="text-brand-red fw-bold fs-5 mb-3">{product.price.toLocaleString()}đ</div>
+                      </Link>
+                      <button className="btn btn-light w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red border" onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}>
+                        Thêm vào giỏ
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-5 bg-white rounded-4 shadow-sm border">
+                <i className="bi bi-search fs-1 text-muted mb-3"></i>
+                <p className="text-muted">Không tìm thấy sản phẩm nào phù hợp với "{searchQuery}"</p>
+              </div>
+            )}
           </div>
         )}
 
-        {/* Category Menu */}
-        <div className="row g-3 mb-4">
-          <div className="col-12">
-            <div className="sidebar-menu d-flex flex-wrap justify-content-start gap-2 p-3">
-              <div className={`sidebar-item ${selectedCategoryId === null ? 'active' : ''}`} onClick={() => handleCategoryClick(null)}>
-                <i className="bi bi-grid me-2"></i> Tất cả sản phẩm
-              </div>
-              {categories.map(category => (
-                <div key={category._id} className={`sidebar-item ${selectedCategoryId === category._id ? 'active' : ''}`} onClick={() => handleCategoryClick(category._id)}>
-                  <i className={`bi ${
-                    category.name.includes('Điện thoại') ? 'bi-phone' :
-                    category.name.includes('Laptop') ? 'bi-laptop' :
-                    category.name.includes('Âm thanh') ? 'bi-headphones' :
-                    category.name.includes('Đồng hồ') || category.name.includes('Camera') ? 'bi-watch' :
-                    category.name.includes('Gia dụng') ? 'bi-house-door' :
-                    category.name.includes('Phụ kiện') ? 'bi-plug' :
-                    'bi-tag'
-                  } me-2`}></i> {category.name}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Category Products Section */}
+        {/* Các Component Tùy Chọn Của Bạn (Flashsale / Category Products) */}
         <CategoryProducts categoryId={selectedCategoryId} categories={categories} products={products} />
-
-        <div className="mb-5 bg-danger p-3 rounded-3 text-center text-white">
-          <h5>🔥 TÙNG TÙNG DEAL KHỦNG - GIẢM ĐẾN 50% - MUA NGAY 🔥</h5>
-        </div>
-
-        {/* Flashsale Section */}
         <FlashSale products={products} countdown={countdown} />
 
-        {/* Hot Products Section */}
-        <h4 className="fw-bold mb-4">SẢN PHẨM HOT</h4>
-        <div className="row g-4 mb-5">
-          <div className="col-lg-2 d-none d-lg-block">
-            <div className="bg-dark text-white rounded-3 p-4 h-100 d-flex flex-column justify-content-center text-center">
-              <h5>SẢN PHẨM HOT</h5>
-              <p className="small text-muted">Ưu đãi độc quyền</p>
-            </div>
-          </div>
-          <div className="col-lg-10">
-            <div className="row row-cols-1 row-cols-md-4 g-4">
-              {products.slice(0, 4).map(product => (
-                <div className="col" key={product._id}>
-                  <Link to={`/product/${product._id}`} className="text-decoration-none text-dark">
-                    <div className="card card-product p-3">
-                      <img src={product.image_url} className="card-img-top" alt={product.name} style={{ height: '200px', objectFit: 'contain' }} />
-                      <div className="card-body px-0">
-                        <p className="small text-truncate">{product.name}</p>
-                        <p className="price mb-0">{product.price.toLocaleString()}đ</p>
-                      </div>
-                    </div>
+        {/* Sản phẩm nổi bật / Sản phẩm Hot (Áp dụng UI mới) */}
+        <section className="mb-5 mt-5">
+          <h2 className="fs-4 fw-bold mb-4 d-flex align-items-center gap-2">
+            <i className="bi bi-fire text-brand-red"></i> Sản phẩm nổi bật
+          </h2>
+          <div className="row row-cols-2 row-cols-md-4 g-4">
+            {products.slice(0, 8).map(product => (
+              <div className="col" key={product._id}>
+                <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column bg-white">
+                  <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
+                    <img src={product.image_url} className="card-img-top rounded-3 object-fit-contain mb-3" height="180" alt={product.name} />
+                    <h6 className="fw-semibold text-truncate">{product.name}</h6>
+                    <div className="text-brand-red fw-bold fs-5 mb-3">{product.price.toLocaleString()}đ</div>
                   </Link>
-                  <button 
-                    className="btn btn-danger w-100 mt-2 btn-sm" 
-                    onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}
-                  >
+                  <button className="btn btn-light border w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red transition" onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}>
                     Thêm vào giỏ
                   </button>
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
-        </div>
+        </section>
 
-        {/* Customer Reviews */}
-        <h4 className="fw-bold mb-4">ĐÁNH GIÁ CỦA KHÁCH HÀNG</h4>
-        <div className="row g-4">
-          {/* Đánh giá 1 */}
-          <div className="col-md-4">
-            <div className="card h-100 border-0 shadow-sm p-3">
-              <div className="d-flex align-items-center mb-3">
-                <div className="bg-secondary rounded-circle me-3" style={{width: '40px', height: '40px'}}></div>
-                <div>
-                  <h6 className="mb-0">Nguyễn Văn A</h6>
-                  <div className="text-warning small">★★★★★</div>
+        {/* Đánh giá khách hàng */}
+        <section className="mb-5">
+          <h2 className="fs-3 fw-bold mb-4">Đánh giá khách hàng</h2>
+          <div className="row g-4">
+            {[
+              { name: 'Nguyễn Văn A', stars: '⭐⭐⭐⭐⭐', text: '"ElectroStore giao hàng cực nhanh, hàng chính hãng, đóng gói kỹ càng. Rất hài lòng!"' },
+              { name: 'Trần Thị B', stars: '⭐⭐⭐⭐☆', text: '"Giá cả hợp lý, nhân viên tư vấn nhiệt tình. Sẽ ủng hộ shop thêm nhiều lần nữa."' },
+              { name: 'Lê Văn C', stars: '⭐⭐⭐⭐⭐', text: '"Hàng giống mô tả 100%, chất liệu tốt. Cảm ơn shop rất nhiều vì món quà nhỏ đi kèm."' }
+            ].map((review, idx) => (
+              <div className="col-md-4" key={idx}>
+                <div className="card rounded-4 p-4 border-light shadow-sm h-100">
+                  <div className="text-warning mb-2">{review.stars}</div>
+                  <p className="text-muted fw-medium mb-3">{review.text}</p>
+                  <p className="small fw-bold text-secondary mb-0 mt-auto">— {review.name}</p>
                 </div>
               </div>
-              <p className="card-text text-muted">Sản phẩm rất chất lượng, đóng gói kỹ càng và giao hàng nhanh chóng. Rất hài lòng!</p>
-            </div>
+            ))}
           </div>
+        </section>
+      </main>
 
-          {/* Đánh giá 2 */}
-          <div className="col-md-4">
-            <div className="card h-100 border-0 shadow-sm p-3">
-              <div className="d-flex align-items-center mb-3">
-                <div className="bg-secondary rounded-circle me-3" style={{width: '40px', height: '40px'}}></div>
-                <div>
-                  <h6 className="mb-0">Trần Thị B</h6>
-                  <div className="text-warning small">★★★★☆</div>
-                </div>
-              </div>
-              <p className="card-text text-muted">Giá cả hợp lý, nhân viên tư vấn nhiệt tình. Sẽ ủng hộ shop thêm nhiều lần nữa.</p>
-            </div>
-          </div>
-
-          {/* Đánh giá 3 */}
-          <div className="col-md-4">
-            <div className="card h-100 border-0 shadow-sm p-3">
-              <div className="d-flex align-items-center mb-3">
-                <div className="bg-secondary rounded-circle me-3" style={{width: '40px', height: '40px'}}></div>
-                <div>
-                  <h6 className="mb-0">Lê Văn C</h6>
-                  <div className="text-warning small">★★★★★</div>
-                </div>
-              </div>
-              <p className="card-text text-muted">Hàng giống mô tả 100%, chất liệu tốt. Cảm ơn shop rất nhiều vì món quà nhỏ đi kèm.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Footer */}
-      <footer className="bg-dark text-white mt-4 py-5">
+      {/* Footer Mới */}
+      <footer className="bg-dark text-white py-5 mt-auto">
         <div className="container">
-          <div className="row">
+          <div className="row g-4">
             <div className="col-md-4">
-              <h5>VỀ CHÚNG TÔI</h5>
-              <p className="small">Chuyên cung cấp các sản phẩm chất lượng cao với dịch vụ tận tâm nhất.</p>
+              <h4 className="fw-bold mb-3 fs-5">ElectroStore</h4>
+              <p className="text-secondary small">Hệ thống bán lẻ thiết bị công nghệ chính hãng hàng đầu Việt Nam.</p>
             </div>
             <div className="col-md-4">
-              <h5>LIÊN KẾT NHANH</h5>
-              <ul className="list-unstyled">
-                <li><a href="#" className="text-white text-decoration-none">Chính sách bảo mật</a></li>
-                <li><a href="#" className="text-white text-decoration-none">Điều khoản sử dụng</a></li>
+              <h4 className="fw-bold mb-3 fs-6">Chính sách</h4>
+              <ul className="list-unstyled text-secondary small">
+                <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Bảo hành</Link></li>
+                <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Đổi trả</Link></li>
               </ul>
             </div>
             <div className="col-md-4">
-              <h5>THÔNG TIN LIÊN HỆ</h5>
-              <p className="small">Email: support@example.com<br />Hotline: 1900 xxxx</p>
+              <h4 className="fw-bold mb-3 fs-6">Liên hệ</h4>
+              <ul className="list-unstyled text-secondary small">
+                <li className="mb-2"><i className="bi bi-telephone me-2"></i> Hotline: 1900 xxxx</li>
+                <li className="mb-2"><i className="bi bi-envelope me-2"></i> CSKH: cskh@electrostore.com</li>
+              </ul>
             </div>
-          </div>
-          <hr className="my-4" />
-          <div className="text-center small">
-            &copy; 2026 Bản quyền thuộc về thương hiệu của bạn.
           </div>
         </div>
       </footer>
 
-      {/* Modals */}
+      {/* Modals giữ nguyên */}
       <LoginModal show={showLoginModal} onClose={handleCloseLoginModal} onSwitchToRegister={handleSwitchToRegister} onLoginSuccess={handleLoginSuccess} />
       <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleRegisterSuccess} />
     </div>
