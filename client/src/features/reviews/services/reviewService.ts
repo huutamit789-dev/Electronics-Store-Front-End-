@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { Review, ReviewApiResponse } from '@/types/review';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 export const reviewService = {
   // Get all reviews

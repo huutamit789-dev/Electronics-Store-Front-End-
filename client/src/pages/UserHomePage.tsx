@@ -22,7 +22,7 @@ import iphone4 from '@/assets/images/iphone-17-pro-max_1_3.webp';
 
 const localImages = [iphone1, iphone2, iphone3, iphone4];
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';
+const API_BASE_URL = import.meta.env.VITE_API_URL;
 
 // Định nghĩa kiểu dữ liệu cho Category
 interface Category {

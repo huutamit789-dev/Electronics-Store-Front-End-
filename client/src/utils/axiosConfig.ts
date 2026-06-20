@@ -3,7 +3,7 @@ import axios from 'axios';
 const isDevelopment = process.env.NODE_ENV === 'development';
 
 // Set base URL for Axios
-axios.defaults.baseURL = import.meta.env.VITE_API_URL || 'http://localhost:8090'; // Use environment variable
+axios.defaults.baseURL = import.meta.env.VITE_API_URL; // Use environment variable
 
 if (isDevelopment) {
   console.log('Axios Interceptors configured for development environment.');

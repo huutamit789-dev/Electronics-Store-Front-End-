@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 
 import toast, { Toaster } from 'react-hot-toast';
 import axiosClient from "@/api/axiosClient"; // Import toast và Toaster
+import { API_BASE_URL } from '@/config/constants';
 
 interface Category {
   _id: string;
@@ -46,7 +47,7 @@ export const CategoryManagementPage: React.FC = () => {
   const fetchCategories = async (page: number, limit: number) => {
     try {
       setLoading(true);
-      const response = await axiosClient.get<CategoryApiResponse>(`http://localhost:8090/api/categories?page=${page}&limit=${limit}`);
+      const response = await axiosClient.get<CategoryApiResponse>(`${API_BASE_URL}/categories?page=${page}&limit=${limit}`);
       setCategories(response.data.data?.categories || []);
       setTotalCategories(response.data.data.total);
       setCurrentPage(response.data.data.currentPage);
@@ -62,7 +63,7 @@ export const CategoryManagementPage: React.FC = () => {
   // --- Handlers ---
   const handleAdd = async () => {
     try {
-      await axiosClient.post('http://localhost:8090/api/categories', newCategory);
+      await axiosClient.post(`${API_BASE_URL}/categories`, newCategory);
       setIsAddModalOpen(false);
       setNewCategory({ name: '', description: '' });
       fetchCategories(currentPage, categoriesPerPage); // Làm mới lại danh sách sau khi thêm thành công
@@ -80,7 +81,7 @@ export const CategoryManagementPage: React.FC = () => {
 
   const handleUpdate = async () => {
     try {
-      await axiosClient.put(`http://localhost:8090/api/categories/${currentCategory._id}`, currentCategory);
+      await axiosClient.put(`${API_BASE_URL}/categories/${currentCategory._id}`, currentCategory);
       setIsEditModalOpen(false);
       fetchCategories(currentPage, categoriesPerPage); // Làm mới lại danh sách sau khi cập nhật thành công
       toast.success('Cập nhật danh mục thành công!');
@@ -97,7 +98,7 @@ export const CategoryManagementPage: React.FC = () => {
 
   const handleDelete = async () => {
     try {
-      await axiosClient.delete(`http://localhost:8090/api/categories/${currentCategory._id}`);
+      await axiosClient.delete(`${API_BASE_URL}/categories/${currentCategory._id}`);
       setIsDeleteModalOpen(false);
       fetchCategories(currentPage, categoriesPerPage); // Làm mới lại danh sách sau khi xóa thành công
       toast.success('Xóa danh mục thành công!');
