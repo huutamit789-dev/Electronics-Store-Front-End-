@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import axiosClient from '@/api/axiosClient';
 import { jwtDecode } from 'jwt-decode';
 import {API_BASE_URL} from "@/config/constants";
+import { useAuthStore } from '@/store/useAuthStore';
 
 // Định nghĩa kiểu dữ liệu cho một item trong giỏ hàng
 interface CartItem {
@@ -61,55 +62,73 @@ interface CartProviderProps {
   children: ReactNode;
 }
 
-const useAuth = (): { user: AuthUser | null } => {
-  const [user, setUser] = useState<AuthUser | null>(null);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token');
-    if (storedToken) {
-      try {
-        const decodedToken: any = jwtDecode(storedToken);
-        if (decodedToken.exp * 1000 < Date.now()) {
-          console.log("Token đã hết hạn.");
-          localStorage.removeItem('token');
-          setUser(null);
-          return;
-        }
-        const authUser: AuthUser = {
-          _id: decodedToken.id,
-          username: decodedToken.username,
-          role: decodedToken.role,
-        };
-        setUser(authUser);
-      } catch (e) {
-        console.error("Failed to decode token or parse user data", e);
-        localStorage.removeItem('token');
-        setUser(null);
-      }
-    }
-  }, []);
-
-  return { user };
-};
-
-
 export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
   const [cart, setCart] = useState<Cart | null>(null);
   const [loadingCart, setLoadingCart] = useState<boolean>(true);
   const [errorCart, setErrorCart] = useState<string | null>(null);
-  const { user } = useAuth(); // Lấy thông tin người dùng từ AuthContext
+  const [user, setUser] = useState<AuthUser | null>(null);
+  const { isLoggedIn, checkAuth } = useAuthStore(); // Lấy trạng thái đăng nhập từ useAuthStore
+
+  // Lấy user từ token khi component mount hoặc khi isLoggedIn thay đổi
+  useEffect(() => {
+    console.log('=== CartProvider useEffect called ===');
+    console.log('isLoggedIn:', isLoggedIn);
+
+    // Check auth state from localStorage
+    checkAuth();
+
+    const token = localStorage.getItem('token');
+    console.log('Token from localStorage:', token);
+
+    if (!token) {
+      console.log('No token found');
+      setUser(null);
+      setLoadingCart(false);
+      return;
+    }
+
+    try {
+      const decodedToken: any = jwtDecode(token);
+      console.log('Decoded token:', decodedToken);
+
+      if (decodedToken.exp * 1000 < Date.now()) {
+        console.log('Token expired');
+        localStorage.removeItem('token');
+        setUser(null);
+        setLoadingCart(false);
+        return;
+      }
+
+      const authUser: AuthUser = {
+        _id: decodedToken.id,
+        username: decodedToken.username,
+        role: decodedToken.role,
+      };
+      console.log('Setting user:', authUser);
+      setUser(authUser);
+    } catch (e) {
+      console.error('Failed to decode token', e);
+      setUser(null);
+    } finally {
+      setLoadingCart(false);
+    }
+  }, [isLoggedIn, checkAuth]);
 
   // Hàm để lấy giỏ hàng từ API
   const fetchCart = async (userId: string) => {
+    console.log('=== fetchCart called ===');
+    console.log('UserId:', userId);
     setLoadingCart(true);
     setErrorCart(null);
     try {
       // Đã sửa: Truyền userId dưới dạng path parameter
       const response = await axiosClient.get(`${API_BASE_URL}/cart/${userId}`);
-      console.log("dữ liệu cart", response.data)
+      console.log("dữ liệu cart response:", response.data)
       if (response.data.success) {
+        console.log("Cart data set:", response.data.data);
         setCart(response.data.data);
       } else {
+        console.log("Fetch cart failed:", response.data.message);
         setErrorCart(response.data.message || 'Failed to fetch cart');
         setCart(null);
       }
@@ -124,12 +143,16 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   // Hàm thêm sản phẩm vào giỏ hàng qua API và cập nhật context
   const addToCartContext = async (userId: string, productId: string, quantity: number, price: number): Promise<boolean> => {
+    console.log('=== addToCartContext called ===');
+    console.log('Params:', { userId, productId, quantity, price });
     try {
       // 1. Check product stock first
       const productResponse = await axiosClient.get(`${API_BASE_URL}/products/${productId}`);
       const product = productResponse.data.data; // Assuming data structure is { success: true, data: productObject }
+      console.log('Product data:', product);
 
       if (!product || product.stock_quantity <= 0) {
+        console.log('Product out of stock or not found');
         setErrorCart('Sản phẩm đã hết hàng hoặc không tồn tại.');
         return false;
       }
@@ -142,10 +165,14 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         quantity: quantity,
         price: price,
       });
+      console.log('Add to cart response:', response.data);
       if (response.data.success) {
+        console.log('Add to cart successful, fetching cart...');
         await fetchCart(userId); // Re-fetch cart after successful add
+        console.log('Cart after fetch:', cart);
         return true;
       } else {
+        console.log('Add to cart failed:', response.data.message);
         setErrorCart(response.data.message || 'Failed to add to cart');
         return false;
       }
@@ -223,9 +250,13 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   // Fetch cart when user changes or on component mount
   useEffect(() => {
+    console.log('=== Fetch cart useEffect called ===');
+    console.log('User:', user);
     if (user?._id) {
+      console.log('Fetching cart for user:', user._id);
       fetchCart(user._id);
     } else {
+      console.log('No user, clearing cart');
       setCart(null); // Clear cart if no user
       setLoadingCart(false);
     }

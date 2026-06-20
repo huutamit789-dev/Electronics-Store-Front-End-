@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { Product } from '@/types/product';
 import axiosClient from "@/api/axiosClient";
-import { useCart } from '@/contexts/CartContext';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useCartStore } from '@/store/useCartStore';
 import { useLogout } from '@/features/auth/hooks/useAuth';
 import { jwtDecode } from 'jwt-decode';
 import { LoginModal } from '@/components/auth/LoginModal';
@@ -45,10 +45,20 @@ const customStyles = `
   .price-old { text-decoration: line-through; color: #6c757d; font-size: 0.9rem; }
   .sticky-action-bar { position: fixed; bottom: 0; width: 100%; background: white; border-top: 1px solid #ddd; z-index: 1000; padding: 10px 0; }
   .card-border { border: 1px solid #e0e0e0; border-radius: 12px; }
+  /* Ẩn mũi tên lên xuống của input number */
+  input[type="number"]::-webkit-inner-spin-button,
+  input[type="number"]::-webkit-outer-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"] {
+    -moz-appearance: textfield;
+  }
 `;
 
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
@@ -57,10 +67,13 @@ export const ProductDetailPage: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [quantity, setQuantity] = useState<number>(1);
+  const [showCartToast, setShowCartToast] = useState(false);
+  const [showStockWarning, setShowStockWarning] = useState(false);
+  const [stockWarningMessage, setStockWarningMessage] = useState('');
 
-  const { user, addToCartContext, errorCart } = useCart();
-  const { isLoggedIn } = useAuthStore();
+  const { isLoggedIn, user } = useAuthStore();
   const { logout } = useLogout();
+  const { addItem, getTotalItems } = useCartStore();
 
   useEffect(() => {
     // Inject custom styles
@@ -100,14 +113,19 @@ export const ProductDetailPage: React.FC = () => {
     };
   }, [id]);
 
-  const handleAddToCart = async () => {
+  const handleAddToCart = () => {
+    console.log('=== handleAddToCart called ===');
+    console.log('Product:', product);
+    console.log('User:', user);
+    console.log('Quantity:', quantity);
+
     if (!product) {
       alert('Không thể thêm sản phẩm vào giỏ hàng vì thông tin sản phẩm không đầy đủ.');
       return;
     }
 
-    if (!user?._id) {
-      alert('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.');
+    if (!isLoggedIn) {
+      handleShowLoginModal();
       return;
     }
 
@@ -116,21 +134,63 @@ export const ProductDetailPage: React.FC = () => {
       return;
     }
 
-    const success = await addToCartContext(user._id, product._id, quantity, product.price);
+    const cartItem = {
+      productId: product._id,
+      productName: product.name,
+      price: product.price,
+      quantity: quantity,
+      image_url: product.image_url,
+    };
 
-    if (success) {
-      alert('Sản phẩm đã được thêm vào giỏ hàng thành công!');
-      setQuantity(1); // Reset quantity after adding
-    } else {
-      alert(`Lỗi khi thêm sản phẩm vào giỏ hàng: ${errorCart || 'Đã xảy ra lỗi không xác định.'}`);
+    addItem(cartItem);
+    setShowCartToast(true);
+    setQuantity(1); // Reset quantity after adding
+
+    // Auto close toast after 2 seconds
+    setTimeout(() => {
+      setShowCartToast(false);
+    }, 2000);
+  };
+
+  const handleBuyNow = () => {
+    console.log('=== handleBuyNow called ===');
+    console.log('Product:', product);
+    console.log('User:', user);
+    console.log('Quantity:', quantity);
+
+    if (!product) {
+      alert('Không thể thêm sản phẩm vào giỏ hàng vì thông tin sản phẩm không đầy đủ.');
+      return;
     }
+
+    if (!isLoggedIn) {
+      handleShowLoginModal();
+      return;
+    }
+
+    if (quantity < 1) {
+      alert('Số lượng phải lớn hơn 0.');
+      return;
+    }
+
+    const cartItem = {
+      productId: product._id,
+      productName: product.name,
+      price: product.price,
+      quantity: quantity,
+      image_url: product.image_url,
+    };
+
+    addItem(cartItem);
+    navigate('/cart');
   };
 
   const handleQuantityChange = (newQuantity: number) => {
     if (newQuantity >= 1) {
       // Check if quantity exceeds stock
       if (product && product.stock_quantity && newQuantity > product.stock_quantity) {
-        alert(`Sản phẩm chỉ còn ${product.stock_quantity} cái, không thể chọn ${newQuantity} cái`);
+        setStockWarningMessage(`Sản phẩm chỉ còn ${product.stock_quantity} cái, không thể chọn ${newQuantity} cái`);
+        setShowStockWarning(true);
         return;
       }
       setQuantity(newQuantity);
@@ -192,42 +252,56 @@ export const ProductDetailPage: React.FC = () => {
 
   return (
     <div className="d-flex flex-column min-vh-100 bg-light text-dark">
-      {/* Navbar */}
-      <nav className="navbar navbar-expand-lg sticky-top mb-4">
-        <div className="container d-flex flex-wrap justify-content-between align-items-center">
-          <div className="d-flex justify-content-between align-items-center w-100">
-            <Link className="navbar-brand fw-bold fs-3 text-danger" to="/">Electro<span className="text-dark">Store</span></Link>
-            <div className="d-flex gap-3">
-              <Link to="/cart" className="text-dark"><i className="bi bi-cart3 fs-4"></i></Link>
-              {isLoggedIn ? (
-                <div className="dropdown">
-                  <a className="nav-link dropdown-toggle text-dark d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                    <i className="bi bi-person fs-4 me-2"></i>
-                    {user?.username}
-                  </a>
-                  <ul className="dropdown-menu" aria-labelledby="navbarDropdown">
-                    <li><Link className="dropdown-item" to="/profile">Thông tin cá nhân</Link></li>
-                    <li><Link className="dropdown-item" to="/my-orders">Đơn hàng của tôi</Link></li>
-                    <li><hr className="dropdown-divider" /></li>
-                    <li><a className="dropdown-item" href="#" onClick={handleLogout}>Đăng xuất</a></li>
-                  </ul>
-                </div>
-              ) : (
-                <a href="#" className="text-dark" onClick={handleShowLoginModal}><i className="bi bi-person fs-4"></i></a>
-              )}
-            </div>
-          </div>
-          <div className="w-100 mt-2 mt-lg-0">
+      {/* Header (Màu đỏ CellphoneS) */}
+      <header className="bg-brand-red text-white sticky-top shadow-sm py-2 z-3">
+        <div className="container d-flex align-items-center gap-4">
+          <Link to="/" className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
+            <i className="bi bi-phone text-warning" style={{ transform: 'rotate(-15deg)' }}></i> ElectroStore
+          </Link>
+
+          <div className="flex-grow-1 position-relative d-none d-md-block">
             <input
-              className="form-control rounded-pill"
-              type="search"
-              placeholder="Tìm kiếm sản phẩm..."
+              type="text"
+              placeholder="Tìm kiếm sản phẩm, thương hiệu..."
+              className="form-control rounded-pill px-4 py-2 search-input shadow-inner"
               value={searchQuery}
               onChange={handleSearch}
             />
+            <i className="bi bi-search position-absolute text-muted" style={{ right: '15px', top: '10px' }}></i>
+          </div>
+
+          <div className="d-flex align-items-center gap-4 ms-auto text-center">
+            <Link to="/cart" className="cursor-pointer text-white text-decoration-none hover-lift">
+              <i className="bi bi-cart3 fs-5 position-relative">
+                {getTotalItems() > 0 && (
+                  <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
+                    {getTotalItems()}
+                  </span>
+                )}
+              </i>
+              <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Giỏ hàng</div>
+            </Link>
+
+            {isLoggedIn ? (
+              <div className="d-flex align-items-center gap-3">
+                <div className="cursor-pointer hover-lift text-white text-decoration-none">
+                  <i className="bi bi-person-check fs-5"></i>
+                  <div style={{ fontSize: '10px', fontWeight: 'bold' }}>{user?.username}</div>
+                </div>
+                <div className="cursor-pointer hover-lift text-white text-decoration-none" onClick={handleLogout}>
+                  <i className="bi bi-box-arrow-right fs-5"></i>
+                  <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Đăng xuất</div>
+                </div>
+              </div>
+            ) : (
+              <div className="cursor-pointer hover-lift" onClick={handleShowLoginModal}>
+                <i className="bi bi-person fs-5"></i>
+                <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Tài khoản</div>
+              </div>
+            )}
           </div>
         </div>
-      </nav>
+      </header>
 
       <nav className="container my-3 text-secondary small">
         <Link to="/" className="text-decoration-none text-secondary">Trang chủ</Link> /
@@ -279,10 +353,10 @@ export const ProductDetailPage: React.FC = () => {
             </div>
 
             {/* Quantity Selector */}
-            <div className="card p-3 card-border mt-3">
+            <div className="card p-3 card-border mt-3" style={{ position: 'relative', zIndex: 1 }}>
               <h6 className="fw-bold mb-3">Số lượng</h6>
               <div className="d-flex align-items-center gap-3">
-                <div className="input-group" style={{ maxWidth: '150px' }}>
+                <div className="input-group" style={{ maxWidth: '150px', position: 'relative', zIndex: 2 }}>
                   <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity - 1)}>
                     <i className="fas fa-minus"></i>
                   </button>
@@ -292,6 +366,7 @@ export const ProductDetailPage: React.FC = () => {
                     value={quantity}
                     onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
                     min="1"
+                    style={{ position: 'relative', zIndex: 3 }}
                   />
                   <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity + 1)}>
                     <i className="fas fa-plus"></i>
@@ -322,13 +397,62 @@ export const ProductDetailPage: React.FC = () => {
       <div className="sticky-action-bar d-md-none">
         <div className="container d-flex gap-2">
           <button className="btn btn-outline-danger flex-grow-1">Gọi tư vấn</button>
-          <button className="btn btn-cps flex-grow-1">Mua ngay</button>
+          <button className="btn btn-cps flex-grow-1" onClick={handleBuyNow}>Mua ngay</button>
         </div>
       </div>
 
+     
       {/* Modals */}
       <LoginModal show={showLoginModal} onClose={handleCloseLoginModal} onSwitchToRegister={handleSwitchToRegister} onLoginSuccess={handleCloseLoginModal} />
       <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleCloseRegisterModal} />
+
+      {/* Stock Warning Modal */}
+      <div className={`modal fade ${showStockWarning ? 'show' : ''}`} style={{ display: showStockWarning ? 'block' : 'none', zIndex: 1060 }} tabIndex={-1}>
+        <div className="modal-dialog modal-dialog-centered">
+          <div className="modal-content">
+            <div className="modal-header bg-warning">
+              <h5 className="modal-title">
+                <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                Cảnh báo
+              </h5>
+              <button type="button" className="btn-close" onClick={() => setShowStockWarning(false)}></button>
+            </div>
+            <div className="modal-body">
+              <p className="mb-0">{stockWarningMessage}</p>
+            </div>
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowStockWarning(false)}>
+                Đóng
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {showStockWarning && <div className="modal-backdrop fade show" style={{ zIndex: 1055 }}></div>}
+
+      {/* Toast Notification */}
+      <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1100 }}>
+        <div
+          className={`toast ${showCartToast ? 'show' : ''}`}
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+          style={{ backgroundColor: '#198754' }}
+        >
+          <div className="toast-header text-white">
+            <i className="bi bi-check-circle-fill me-2"></i>
+            <strong className="me-auto">Thành công</strong>
+            <button
+              type="button"
+              className="btn-close btn-close-white"
+              onClick={() => setShowCartToast(false)}
+            ></button>
+          </div>
+          <div className="toast-body text-white">
+            Sản phẩm đã được thêm vào giỏ hàng thành công!
+          </div>
+        </div>
+      </div>
     </div>
   );
 };

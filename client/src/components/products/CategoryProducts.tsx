@@ -3,6 +3,9 @@ import { Link } from 'react-router-dom';
 import { Product } from '@/types/product';
 import { productService } from '@/features/products/services/productService';
 import { useCartStore } from '@/store/useCartStore';
+import { useAuthStore } from '@/store/useAuthStore';
+import { LoginModal } from '@/components/auth/LoginModal';
+import { RegisterModal } from '@/components/auth/RegisterModal';
 import '@/index.css';
 
 interface Category {
@@ -19,7 +22,11 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({ categoryId, 
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showCartToast, setShowCartToast] = useState(false);
   const { addItem } = useCartStore();
+  const { isLoggedIn } = useAuthStore();
 
   const fetchProductsByCategory = useCallback(async () => {
     setLoading(true);
@@ -43,6 +50,10 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({ categoryId, 
 
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
+    if (!isLoggedIn) {
+      handleShowLoginModal();
+      return;
+    }
     addItem({
       productId: product._id,
       productName: product.name,
@@ -50,8 +61,21 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({ categoryId, 
       quantity: 1,
       image_url: product.image_url || '',
     });
-    alert(`Đã thêm ${product.name} vào giỏ hàng!`);
+    setShowCartToast(true);
+
+    // Auto close toast after 2 seconds
+    setTimeout(() => {
+      setShowCartToast(false);
+    }, 2000);
   };
+
+  // Modal handlers
+  const handleShowLoginModal = () => { setShowLoginModal(true); setShowRegisterModal(false); };
+  const handleCloseLoginModal = () => setShowLoginModal(false);
+  const handleShowRegisterModal = () => { setShowRegisterModal(true); setShowLoginModal(false); };
+  const handleCloseRegisterModal = () => setShowRegisterModal(false);
+  const handleSwitchToRegister = () => { setShowLoginModal(false); setShowRegisterModal(true); };
+  const handleSwitchToLogin = () => { setShowRegisterModal(false); setShowLoginModal(true); };
 
   // Hàm xử lý khi ảnh bị lỗi hoặc không tải được
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
@@ -61,6 +85,7 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({ categoryId, 
   const categoryName = categories.find(c => c._id === categoryId)?.name || 'Tất cả sản phẩm';
 
   return (
+    <>
       <div className="mb-5">
         <div className="d-flex justify-content-between align-items-center mb-4">
           <h4 className="fw-bold fs-4 d-flex align-items-center gap-2">
@@ -110,5 +135,34 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({ categoryId, 
             </div>
         )}
       </div>
+
+      {/* Modals */}
+      <LoginModal show={showLoginModal} onClose={handleCloseLoginModal} onSwitchToRegister={handleSwitchToRegister} onLoginSuccess={handleCloseLoginModal} />
+      <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleCloseRegisterModal} />
+
+      {/* Toast Notification */}
+      <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1100 }}>
+        <div
+          className={`toast ${showCartToast ? 'show' : ''}`}
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+          style={{ backgroundColor: '#198754' }}
+        >
+          <div className="toast-header text-white">
+            <i className="bi bi-check-circle-fill me-2"></i>
+            <strong className="me-auto">Thành công</strong>
+            <button
+              type="button"
+              className="btn-close btn-close-white"
+              onClick={() => setShowCartToast(false)}
+            ></button>
+          </div>
+          <div className="toast-body text-white">
+            Đã thêm sản phẩm vào giỏ hàng!
+          </div>
+        </div>
+      </div>
+    </>
   );
 };

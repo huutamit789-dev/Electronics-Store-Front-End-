@@ -1,6 +1,5 @@
 // src/routes/AppRoutes.tsx
 import { Routes, Route, Navigate } from 'react-router-dom'; // Thêm Navigate vào import
-import { LoginForm } from '@/features/auth/components/LoginForm';
 import { RegisterForm } from '@/features/auth/components/RegisterForm';
 import { UserHomePage } from '@/pages/UserHomePage';
 import { CartPage } from '@/pages/CartPage';
@@ -22,7 +21,7 @@ export const AppRoutes = () => {
         <Routes>
             {/* Public Routes */}
             <Route path="/" element={<UserHomePage />} />
-            <Route path="/login" element={<LoginForm />} />
+            <Route path="/login" element={<Navigate to="/" replace />} />
             <Route path="/register" element={<RegisterForm />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />

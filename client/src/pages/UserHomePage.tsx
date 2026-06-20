@@ -46,6 +46,7 @@ export const UserHomePage: React.FC = () => {
 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [showCartToast, setShowCartToast] = useState(false);
 
   const countdown = useCountdown(1);
   const { isLoggedIn, user } = useAuthStore();
@@ -153,6 +154,11 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   }, [products, searchQuery]);
 
   const handleAddToCart = (product: Product) => {
+    if (!isLoggedIn) {
+      handleShowLoginModal();
+      return;
+    }
+
     const cartItem: CartItem = {
       productId: product._id,
       productName: product.name,
@@ -161,7 +167,12 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
       image_url: product.image_url,
     };
     addItem(cartItem);
-    alert(`Đã thêm ${product.name} vào giỏ hàng!`);
+    setShowCartToast(true);
+
+    // Auto close toast after 2 seconds
+    setTimeout(() => {
+      setShowCartToast(false);
+    }, 2000);
   };
 
   const handleLoginSuccess = () => {
@@ -237,17 +248,15 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
             </Link>
             
             {isLoggedIn ? (
-              <div className="dropdown cursor-pointer hover-lift">
-                <div data-bs-toggle="dropdown" aria-expanded="false" className="text-white text-decoration-none">
+              <div className="d-flex align-items-center gap-3">
+                <div className="cursor-pointer hover-lift text-white text-decoration-none">
                   <i className="bi bi-person-check fs-5"></i>
                   <div style={{ fontSize: '10px', fontWeight: 'bold' }}>{user?.username}</div>
                 </div>
-                <ul className="dropdown-menu dropdown-menu-end shadow">
-                  <li><Link className="dropdown-item" to="/profile">Thông tin cá nhân</Link></li>
-                  <li><Link className="dropdown-item" to="/my-orders">Đơn hàng của tôi</Link></li>
-                  <li><hr className="dropdown-divider" /></li>
-                  <li><button className="dropdown-item text-danger" onClick={handleLogout}>Đăng xuất</button></li>
-                </ul>
+                <div className="cursor-pointer hover-lift text-white text-decoration-none" onClick={handleLogout}>
+                  <i className="bi bi-box-arrow-right fs-5"></i>
+                  <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Đăng xuất</div>
+                </div>
               </div>
             ) : (
               <div className="cursor-pointer hover-lift" onClick={handleShowLoginModal}>
@@ -465,6 +474,30 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
       {/* Modals giữ nguyên */}
       <LoginModal show={showLoginModal} onClose={handleCloseLoginModal} onSwitchToRegister={handleSwitchToRegister} onLoginSuccess={handleLoginSuccess} />
       <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleRegisterSuccess} />
+
+      {/* Toast Notification */}
+      <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1100 }}>
+        <div
+          className={`toast ${showCartToast ? 'show' : ''}`}
+          role="alert"
+          aria-live="assertive"
+          aria-atomic="true"
+          style={{ backgroundColor: '#198754' }}
+        >
+          <div className="toast-header text-white">
+            <i className="bi bi-check-circle-fill me-2"></i>
+            <strong className="me-auto">Thành công</strong>
+            <button
+              type="button"
+              className="btn-close btn-close-white"
+              onClick={() => setShowCartToast(false)}
+            ></button>
+          </div>
+          <div className="toast-body text-white">
+            Đã thêm sản phẩm vào giỏ hàng!
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
