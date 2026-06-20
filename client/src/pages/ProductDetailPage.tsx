@@ -8,6 +8,7 @@ import { useLogout } from '@/features/auth/hooks/useAuth';
 import { jwtDecode } from 'jwt-decode';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
+import { API_BASE_URL } from '@/config/constants';
 
 // Định nghĩa kiểu dữ liệu cho Product Detail API Response
 interface ProductDetailApiResponse {
@@ -77,10 +78,10 @@ export const ProductDetailPage: React.FC = () => {
       try {
         setLoading(true);
         // Fetch product details
-        const productResponse = await axiosClient.get<ProductDetailApiResponse>(`http://localhost:8090/api/products/${id}`);
+        const productResponse = await axiosClient.get<ProductDetailApiResponse>(`${API_BASE_URL}/products/${id}`);
         setProduct(productResponse.data.data);
         // Fetch categories
-        const categoriesResponse = await axiosClient.get<CategoryApiResponse>('http://localhost:8090/api/categories');
+        const categoriesResponse = await axiosClient.get<CategoryApiResponse>(`${API_BASE_URL}/categories`);
         setCategories(categoriesResponse.data.data.categories);
 
 

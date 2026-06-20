@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axiosClient from "@/api/axiosClient";
-import toast, { Toaster } from 'react-hot-toast'; // Import toast và Toaster
+import toast, { Toaster } from 'react-hot-toast';
+import { API_BASE_URL } from '@/config/constants'; // Import toast và Toaster
 
 // Định nghĩa kiểu dữ liệu cho Payment
 interface Payment {
@@ -60,7 +61,7 @@ export const PaymentManagementPage: React.FC = () => {
   const fetchPayments = async (page: number, limit: number) => {
     try {
       setLoading(true);
-      const response = await axiosClient.get<PaymentApiResponse>(`http://localhost:8090/api/payments?page=${page}&limit=${limit}`);
+      const response = await axiosClient.get<PaymentApiResponse>(`${API_BASE_URL}/payments?page=${page}&limit=${limit}`);
       console.log("paymentt",response);
       setPayments(response.data.data?.payments || []); // Lấy mảng payments từ data.data.payments
       setTotalPayments(response.data.data.total);

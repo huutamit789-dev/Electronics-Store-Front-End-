@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import axiosClient from '@/api/axiosClient';
 import { useAuthStore } from '@/store/useAuthStore';
 import { jwtDecode } from 'jwt-decode';
+import { API_BASE_URL } from '@/config/constants';
 
 interface OrderItem {
   product_id: {
@@ -61,7 +62,7 @@ export const MyOrdersPage: React.FC = () => {
         setError('User ID not found in token');
         return;
       }
-      const response = await axiosClient.get(`http://localhost:8090/api/orders/user/${userId}`, {
+      const response = await axiosClient.get(`${API_BASE_URL}/orders/user/${userId}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }

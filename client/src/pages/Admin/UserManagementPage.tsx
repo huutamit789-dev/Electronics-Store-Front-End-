@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axiosClient from "@/api/axiosClient";
-import toast, { Toaster } from 'react-hot-toast'; // Import toast và Toaster
+import toast, { Toaster } from 'react-hot-toast';
+import { API_BASE_URL } from '@/config/constants'; // Import toast và Toaster
 
 // Định nghĩa kiểu dữ liệu cho User
 interface User {
@@ -50,7 +51,7 @@ export const UserManagementPage: React.FC = () => {
   const fetchUsers = async (page: number, limit: number) => {
     try {
       setLoading(true);
-      const response = await axiosClient.get<UserApiResponse>(`http://localhost:8090/api/users?page=${page}&limit=${limit}`);
+      const response = await axiosClient.get<UserApiResponse>(`${API_BASE_URL}/users?page=${page}&limit=${limit}`);
       console.log("user data", response);
       setUsers(response.data.data?.users || []); // Lấy mảng users từ data.data.users
       setTotalUsers(response.data.data.total);
@@ -70,7 +71,7 @@ export const UserManagementPage: React.FC = () => {
 
   const handleAdd = async () => {
     try {
-      await axiosClient.post('http://localhost:8090/api/users', newUser);
+      await axiosClient.post(`${API_BASE_URL}/users`, newUser);
       setIsAddModalOpen(false);
       setNewUser({ username: '', email: '', role: '' });
       fetchUsers(currentPage, usersPerPage); // Cập nhật lại danh sách sau khi thêm
@@ -91,7 +92,7 @@ export const UserManagementPage: React.FC = () => {
 
   const handleUpdate = async () => {
     try {
-      await axiosClient.put(`http://localhost:8090/api/users/${currentUser._id}`, currentUser);
+      await axiosClient.put(`${API_BASE_URL}/users/${currentUser._id}`, currentUser);
       setIsEditModalOpen(false);
       fetchUsers(currentPage, usersPerPage); // Cập nhật lại danh sách sau khi cập nhật
       toast.success('Cập nhật người dùng thành công!'); // Thông báo thành công bằng toast
@@ -111,7 +112,7 @@ export const UserManagementPage: React.FC = () => {
 
   const handleDeleteUser = async () => {
     try {
-      await axiosClient.delete(`http://localhost:8090/api/users/${currentUser._id}`);
+      await axiosClient.delete(`${API_BASE_URL}/users/${currentUser._id}`);
       setIsDeleteModalOpen(false);
       fetchUsers(currentPage, usersPerPage); // Cập nhật lại danh sách sau khi xóa
       toast.success('Xóa người dùng thành công!'); // Thông báo thành công bằng toast

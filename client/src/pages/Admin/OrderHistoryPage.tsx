@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axiosClient from "@/api/axiosClient";
+import { API_BASE_URL } from '@/config/constants';
 // Định nghĩa kiểu dữ liệu cho Order History Item (có thể giống Order hoặc có thêm/bớt trường)
 interface OrderHistoryItem {
   _id: string;
@@ -28,7 +29,7 @@ export const OrderHistoryPage: React.FC = () => {
       try {
         setLoading(true);
         // Endpoint: GET /api/orderHistory
-        const response = await axiosClient.get<OrderHistoryApiResponse>('http://localhost:8090/api/orderHistory');
+        const response = await axiosClient.get<OrderHistoryApiResponse>(`${API_BASE_URL}/orderHistory`);
         setOrderHistory(response.data.data || []);
         console.log('Fetched order history:', response.data.data);
       } catch (err) {

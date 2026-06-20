@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import axiosClient from "@/api/axiosClient";
+import { API_BASE_URL } from '@/config/constants';
 
 // Định nghĩa kiểu dữ liệu cho Review
 interface Review {
@@ -47,7 +48,7 @@ export const ReviewManagementPage: React.FC = () => {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const response = await axiosClient.get<any>('http://localhost:8090/api/reviews');
+      const response = await axiosClient.get<any>(`${API_BASE_URL}/reviews`);
   console.log("review", response)
       setReviews(response.data?.data?.reviews || []);
     } catch (err) {
@@ -78,7 +79,7 @@ export const ReviewManagementPage: React.FC = () => {
   const handleUpdate = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axiosClient.put(`http://localhost:8090/api/reviews/${currentReview._id}`, { rating: editReview.rating, comment: editReview.comment }, {
+      await axiosClient.put(`${API_BASE_URL}/reviews/${currentReview._id}`, { rating: editReview.rating, comment: editReview.comment }, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -101,7 +102,7 @@ export const ReviewManagementPage: React.FC = () => {
 
   const handleDeleteReview = async () => {
     try {
-      await axiosClient.delete(`http://localhost:8090/api/reviews/${currentReview._id}`);
+      await axiosClient.delete(`${API_BASE_URL}/reviews/${currentReview._id}`);
       setIsDeleteModalOpen(false);
       fetchReviews();
     } catch (err) {

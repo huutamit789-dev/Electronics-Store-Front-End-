@@ -4,6 +4,7 @@ import axiosClient from "@/api/axiosClient";
 import imageCompression from 'browser-image-compression'; // Import thư viện nén ảnh
 import axios from 'axios'; // Import axios
 import toast, { Toaster } from 'react-hot-toast'; // Import toast và Toaster
+import { API_BASE_URL } from '@/config/constants';
 
 export const ProductManagementPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -45,7 +46,7 @@ export const ProductManagementPage: React.FC = () => {
   // useEffect(() => { // Đã gộp vào useEffect chính
   //   fetchProducts();
   // }, []);
-  const response =  axiosClient.get('http://localhost:8090/api/categories');
+  const response =  axiosClient.get(`${API_BASE_URL}/categories`);
 
   const handleAddProduct = () => {
     setIsAddModalOpen(true);
@@ -62,7 +63,7 @@ export const ProductManagementPage: React.FC = () => {
 // 2. Thêm hàm fetchCategories
   const fetchCategories = async () => {
     try {
-      const response = await axiosClient.get('http://localhost:8090/api/categories'); // Thay đổi endpoint này phù hợp với API của bạn
+      const response = await axiosClient.get(`${API_BASE_URL}/categories`); // Thay đổi endpoint này phù hợp với API của bạn
       setCategories(response.data.data.categories); // Điều chỉnh đường dẫn data tùy theo response thực tế
     } catch (err) {
       console.error('Lỗi khi lấy danh mục:', err);
@@ -86,7 +87,7 @@ export const ProductManagementPage: React.FC = () => {
 
   const handleDeleteProduct = async () => {
     try {
-      await axiosClient.delete(`http://localhost:8090/api/products/${currentProduct._id}`);
+      await axiosClient.delete(`${API_BASE_URL}/products/${currentProduct._id}`);
       setIsDeleteModalOpen(false);
       fetchProducts(currentPage, productsPerPage); // Cập nhật lại danh sách sản phẩm sau khi xóa
       toast.success('Xóa sản phẩm thành công!'); // Thông báo thành công bằng toast
@@ -131,7 +132,7 @@ export const ProductManagementPage: React.FC = () => {
         productToAdd = { ...productToAdd, image_url: imageUrl };
       }
       
-      await axiosClient.post('http://localhost:8090/api/products', productToAdd);
+      await axiosClient.post(`${API_BASE_URL}/products`, productToAdd);
       setIsAddModalOpen(false);
       setNewProduct({ name: '', description: '', price: 0, stock_quantity: 0, image_url: '', cate_id: '' });
       setNewImageFile(null);
@@ -152,7 +153,7 @@ export const ProductManagementPage: React.FC = () => {
         productToUpdate = { ...productToUpdate, image_url: imageUrl };
       }
       
-      await axiosClient.put(`http://localhost:8090/api/products/${currentProduct._id}`, productToUpdate);
+      await axiosClient.put(`${API_BASE_URL}/products/${currentProduct._id}`, productToUpdate);
       setIsEditModalOpen(false);
       setEditImageFile(null);
       fetchProducts(currentPage, productsPerPage); // Cập nhật lại danh sách sản phẩm sau khi cập nhật
@@ -166,7 +167,7 @@ console.log("pruct filter", products)
   const fetchProducts = async (page: number, limit: number) => {
     try {
       setLoading(true);
-      const response = await axiosClient.get<ProductApiResponse>(`http://localhost:8090/api/products/getAllProduct?page=${page}&limit=${limit}`);
+      const response = await axiosClient.get<ProductApiResponse>(`${API_BASE_URL}/products/getAllProduct?page=${page}&limit=${limit}`);
       const fetchedProducts: Product[] = response.data.data.products || [];
       setProducts(fetchedProducts);
       setTotalProducts(response.data.data.total);

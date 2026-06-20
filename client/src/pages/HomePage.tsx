@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { Product } from '@/types/product';
 import { productService } from '@/features/products/services/productService';
+import { API_BASE_URL } from '@/config/constants';
 
 const { Content } = Layout;
 
@@ -55,7 +56,7 @@ export const HomePage = () => {
 
   const fetchCategories = useCallback(async () => {
     try {
-      const categoriesResponse = await axios.get<CategoryApiResponse>('http://localhost:8090/api/categories');
+      const categoriesResponse = await axios.get<CategoryApiResponse>(`${API_BASE_URL}/categories`);
       setCategories(categoriesResponse.data.data.categories);
     } catch (err) {
       setError('Failed to fetch categories. Please try again later.');

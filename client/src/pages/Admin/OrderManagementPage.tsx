@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import axiosClient from "@/api/axiosClient";
-import toast, { Toaster } from 'react-hot-toast'; // Import toast và Toaster
+import toast, { Toaster } from 'react-hot-toast';
+import { API_BASE_URL } from '@/config/constants'; // Import toast và Toaster
 
 // Định nghĩa kiểu dữ liệu cho Order Product
 interface OrderProduct {
@@ -71,7 +72,7 @@ export const OrderManagementPage: React.FC = () => {
     try {
       setLoading(true);
       const token = localStorage.getItem('token');
-      const response = await axiosClient.get<OrderApiResponse>(`http://localhost:8090/api/orders?page=${page}&limit=${limit}`, {
+      const response = await axiosClient.get<OrderApiResponse>(`${API_BASE_URL}/orders?page=${page}&limit=${limit}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -109,7 +110,7 @@ export const OrderManagementPage: React.FC = () => {
   const handleStatusUpdate = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axiosClient.put(`http://localhost:8090/api/orders/${currentOrder._id}/status`, { status: newStatus }, {
+      await axiosClient.put(`${API_BASE_URL}/orders/${currentOrder._id}/status`, { status: newStatus }, {
         headers: {
           Authorization: `Bearer ${token}`
         }
@@ -134,7 +135,7 @@ export const OrderManagementPage: React.FC = () => {
   const handleDeleteOrder = async () => {
     try {
       const token = localStorage.getItem('token');
-      await axiosClient.delete(`http://localhost:8090/api/orders/${currentOrder._id}`, {
+      await axiosClient.delete(`${API_BASE_URL}/orders/${currentOrder._id}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
