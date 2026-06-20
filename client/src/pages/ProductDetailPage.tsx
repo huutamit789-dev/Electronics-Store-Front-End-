@@ -1,15 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { CustomHeader } from '@/components/layout/Header'; // Sử dụng CustomHeader đã refactor sang Bootstrap
 import { Product } from '@/types/product';
-import axiosClient from "@/api/axiosClient"; // Import kiểu Product
-import { jwtDecode } from 'jwt-decode'; // Đã sửa lỗi import: sử dụng named import { jwtDecode }
+import axiosClient from "@/api/axiosClient";
+import { useCart } from '@/contexts/CartContext';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useLogout } from '@/features/auth/hooks/useAuth';
+import { jwtDecode } from 'jwt-decode';
+import { LoginModal } from '@/components/auth/LoginModal';
+import { RegisterModal } from '@/components/auth/RegisterModal';
 
 // Định nghĩa kiểu dữ liệu cho Product Detail API Response
 interface ProductDetailApiResponse {
   success: boolean;
   message: string;
-  data: Product; // Giả định API trả về trực tiếp đối tượng Product
+  data: Product;
 }
 
 // Định nghĩa kiểu dữ liệu cho Category
@@ -42,65 +46,20 @@ const customStyles = `
   .card-border { border: 1px solid #e0e0e0; border-radius: 12px; }
 `;
 
-interface AuthUser {
-  _id: string;
-  username: string;
-  role: string;
-  // Thêm các thuộc tính khác nếu có trong payload của token
-}
-
-interface AuthContextType {
-  user: AuthUser | null;
-  // other auth functions like login, logout
-}
-
-const useAuth = (): AuthContextType => {
-  const [user, setUser] = useState<AuthUser | null>(null);
-
-  useEffect(() => {
-    const storedToken = localStorage.getItem('token'); // Đọc token từ localStorage
-    if (storedToken) {
-      try {
-        const decodedToken: any = jwtDecode(storedToken); // Đã sửa: sử dụng jwtDecode
-
-        // Kiểm tra thời gian hết hạn của token
-        if (decodedToken.exp * 1000 < Date.now()) {
-          console.log("Token đã hết hạn.");
-          localStorage.removeItem('token'); // Xóa token hết hạn
-          setUser(null);
-          return;
-        }
-
-        // Lấy thông tin người dùng từ payload đã giải mã
-        const authUser: AuthUser = {
-          _id: decodedToken.id, // Lấy id từ token
-          username: decodedToken.username,
-          role: decodedToken.role,
-          // Map các thuộc tính khác từ decodedToken nếu có
-        };
-        setUser(authUser);
-      } catch (e) {
-        console.error("Failed to decode token or parse user data", e);
-        localStorage.removeItem('token'); // Xóa token không hợp lệ
-        setUser(null);
-      }
-    }
-  }, []);
-
-  return { user };
-};
-// --- End of Placeholder ---
-
-
 export const ProductDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showRegisterModal, setShowRegisterModal] = useState(false);
+  const [quantity, setQuantity] = useState<number>(1);
 
-  // Get userId from your authentication context
-  const { user } = useAuth(); // Sử dụng useAuth hook đã được cập nhật
+  const { user, addToCartContext, errorCart } = useCart();
+  const { isLoggedIn } = useAuthStore();
+  const { logout } = useLogout();
 
   useEffect(() => {
     // Inject custom styles
@@ -120,12 +79,10 @@ export const ProductDetailPage: React.FC = () => {
         // Fetch product details
         const productResponse = await axiosClient.get<ProductDetailApiResponse>(`http://localhost:8090/api/products/${id}`);
         setProduct(productResponse.data.data);
-        console.log('Fetched product details:', productResponse.data.data);
-
         // Fetch categories
         const categoriesResponse = await axiosClient.get<CategoryApiResponse>('http://localhost:8090/api/categories');
         setCategories(categoriesResponse.data.data.categories);
-        console.log('Fetched categories:', categoriesResponse.data.data.categories);
+
 
       } catch (err) {
         console.error('Error fetching data:', err);
@@ -148,33 +105,51 @@ export const ProductDetailPage: React.FC = () => {
       return;
     }
 
-    // Use user._id from the auth context
     if (!user?._id) {
       alert('Vui lòng đăng nhập để thêm sản phẩm vào giỏ hàng.');
-      // Bạn có thể chuyển hướng đến trang đăng nhập hoặc hiển thị modal đăng nhập ở đây
       return;
     }
 
-    try {
-      const response = await axiosClient.post('http://localhost:8090/api/cart/add', {
-        userId: user._id, // Sử dụng user._id đã lấy từ token
-        productId: product._id,
-        quantity: 1,
-        price: product.price,
-      });
-
-      if (response.data.success) {
-        alert('Sản phẩm đã được thêm vào giỏ hàng thành công!');
-        console.log('Add to cart successful:', response.data);
-        // Tùy chọn: cập nhật context giỏ hàng hoặc hiển thị thông báo
-      } else {
-        alert(`Lỗi khi thêm sản phẩm vào giỏ hàng: ${response.data.message}`);
-        console.error('Add to cart failed:', response.data.message);
-      }
-    } catch (err) {
-      console.error('Error adding product to cart:', err);
-      alert('Đã xảy ra lỗi khi thêm sản phẩm vào giỏ hàng. Vui lòng thử lại.');
+    if (quantity < 1) {
+      alert('Số lượng phải lớn hơn 0.');
+      return;
     }
+
+    const success = await addToCartContext(user._id, product._id, quantity, product.price);
+
+    if (success) {
+      alert('Sản phẩm đã được thêm vào giỏ hàng thành công!');
+      setQuantity(1); // Reset quantity after adding
+    } else {
+      alert(`Lỗi khi thêm sản phẩm vào giỏ hàng: ${errorCart || 'Đã xảy ra lỗi không xác định.'}`);
+    }
+  };
+
+  const handleQuantityChange = (newQuantity: number) => {
+    if (newQuantity >= 1) {
+      // Check if quantity exceeds stock
+      if (product && product.stock_quantity && newQuantity > product.stock_quantity) {
+        alert(`Sản phẩm chỉ còn ${product.stock_quantity} cái, không thể chọn ${newQuantity} cái`);
+        return;
+      }
+      setQuantity(newQuantity);
+    }
+  };
+
+  // Modal handlers
+  const handleShowLoginModal = () => { setShowLoginModal(true); setShowRegisterModal(false); };
+  const handleCloseLoginModal = () => setShowLoginModal(false);
+  const handleShowRegisterModal = () => { setShowRegisterModal(true); setShowLoginModal(false); };
+  const handleCloseRegisterModal = () => setShowRegisterModal(false);
+  const handleSwitchToRegister = () => { setShowLoginModal(false); setShowRegisterModal(true); };
+  const handleSwitchToLogin = () => { setShowRegisterModal(false); setShowLoginModal(true); };
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
   };
 
   // Tìm tên danh mục dựa trên cate_id của sản phẩm
@@ -216,7 +191,43 @@ export const ProductDetailPage: React.FC = () => {
 
   return (
     <div className="d-flex flex-column min-vh-100 bg-light text-dark">
-      <CustomHeader />
+      {/* Navbar */}
+      <nav className="navbar navbar-expand-lg sticky-top mb-4">
+        <div className="container d-flex flex-wrap justify-content-between align-items-center">
+          <div className="d-flex justify-content-between align-items-center w-100">
+            <Link className="navbar-brand fw-bold fs-3 text-danger" to="/">Electro<span className="text-dark">Store</span></Link>
+            <div className="d-flex gap-3">
+              <Link to="/cart" className="text-dark"><i className="bi bi-cart3 fs-4"></i></Link>
+              {isLoggedIn ? (
+                <div className="dropdown">
+                  <a className="nav-link dropdown-toggle text-dark d-flex align-items-center" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                    <i className="bi bi-person fs-4 me-2"></i>
+                    {user?.username}
+                  </a>
+                  <ul className="dropdown-menu" aria-labelledby="navbarDropdown">
+                    <li><Link className="dropdown-item" to="/profile">Thông tin cá nhân</Link></li>
+                    <li><Link className="dropdown-item" to="/my-orders">Đơn hàng của tôi</Link></li>
+                    <li><hr className="dropdown-divider" /></li>
+                    <li><a className="dropdown-item" href="#" onClick={handleLogout}>Đăng xuất</a></li>
+                  </ul>
+                </div>
+              ) : (
+                <a href="#" className="text-dark" onClick={handleShowLoginModal}><i className="bi bi-person fs-4"></i></a>
+              )}
+            </div>
+          </div>
+          <div className="w-100 mt-2 mt-lg-0">
+            <input
+              className="form-control rounded-pill"
+              type="search"
+              placeholder="Tìm kiếm sản phẩm..."
+              value={searchQuery}
+              onChange={handleSearch}
+            />
+          </div>
+        </div>
+      </nav>
+
       <nav className="container my-3 text-secondary small">
         <Link to="/" className="text-decoration-none text-secondary">Trang chủ</Link> /
         {/* Sử dụng cate_id thay vì category_id */}
@@ -249,6 +260,11 @@ export const ProductDetailPage: React.FC = () => {
                 {/* Giả định có original_price để hiển thị giá cũ */}
                 {/* <span className="price-old">31.990.000₫</span> */}
               </div>
+              <div className="mt-2">
+                <span className={`badge ${product.stock_quantity > 0 ? 'bg-success' : 'bg-danger'}`}>
+                  {product.stock_quantity > 0 ? `Còn ${product.stock_quantity} cái` : 'Hết hàng'}
+                </span>
+              </div>
             </div>
 
             {/* Offers Section */}
@@ -261,10 +277,37 @@ export const ProductDetailPage: React.FC = () => {
               </ul>
             </div>
 
+            {/* Quantity Selector */}
+            <div className="card p-3 card-border mt-3">
+              <h6 className="fw-bold mb-3">Số lượng</h6>
+              <div className="d-flex align-items-center gap-3">
+                <div className="input-group" style={{ maxWidth: '150px' }}>
+                  <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity - 1)}>
+                    <i className="fas fa-minus"></i>
+                  </button>
+                  <input
+                    type="number"
+                    className="form-control text-center"
+                    value={quantity}
+                    onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
+                    min="1"
+                  />
+                  <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity + 1)}>
+                    <i className="fas fa-plus"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Action Buttons */}
             <div className="d-grid gap-2 mt-4">
-              <button className="btn btn-cps btn-lg" onClick={handleAddToCart}>
-                <i className="fas fa-shopping-cart me-2"></i> Thêm vào giỏ hàng
+              <button
+                className="btn btn-cps btn-lg"
+                onClick={handleAddToCart}
+                disabled={!product || product.stock_quantity <= 0 || quantity > product.stock_quantity}
+              >
+                <i className="fas fa-shopping-cart me-2"></i>
+                {product && product.stock_quantity <= 0 ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
               </button>
               <button className="btn btn-outline-danger btn-lg">
                 <i className="fas fa-phone me-2"></i> Gọi tư vấn
@@ -281,6 +324,10 @@ export const ProductDetailPage: React.FC = () => {
           <button className="btn btn-cps flex-grow-1">Mua ngay</button>
         </div>
       </div>
+
+      {/* Modals */}
+      <LoginModal show={showLoginModal} onClose={handleCloseLoginModal} onSwitchToRegister={handleSwitchToRegister} onLoginSuccess={handleCloseLoginModal} />
+      <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleCloseRegisterModal} />
     </div>
   );
 };

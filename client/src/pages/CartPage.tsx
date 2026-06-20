@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCartStore } from '@/store/useCartStore';
+import { useCart } from '@/contexts/CartContext';
 import { useAuthStore } from '@/store/useAuthStore';
 import { cartService } from '@/features/cart/services/cartService';
 import { CreateOrderRequest } from '@/types/order';
@@ -9,20 +9,26 @@ import { CustomHeader } from '@/components/layout/Header';
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
-  const { items, updateQuantity, removeItem, clearCart, getTotalAmount } = useCartStore();
-  const { isLoggedIn, user } = useAuthStore();
+  const { cart, removeFromCartContext, updateCartItemQuantityContext, clearCartContext, user } = useCart();
+  const { isLoggedIn } = useAuthStore();
   const [isProcessing, setIsProcessing] = React.useState(false);
 
-  const handleUpdateQuantity = (productId: string, quantity: number) => {
-    updateQuantity(productId, quantity);
+  const handleUpdateQuantity = async (productId: string, quantity: number) => {
+    if (user?._id) {
+      await updateCartItemQuantityContext(user._id, productId, quantity);
+    }
   };
 
-  const handleRemoveItem = (productId: string) => {
-    removeItem(productId);
+  const handleRemoveItem = async (productId: string) => {
+    if (user?._id) {
+      await removeFromCartContext(user._id, productId);
+    }
   };
 
-  const handleClearCart = () => {
-    clearCart();
+  const handleClearCart = async () => {
+    if (user?._id) {
+      await clearCartContext(user._id);
+    }
   };
 
   const handleCheckout = async () => {
@@ -33,17 +39,27 @@ export const CartPage: React.FC = () => {
       return;
     }
 
+    if (!cart?.items || cart.items.length === 0) {
+      alert('Giỏ hàng trống!');
+      return;
+    }
+
     setIsProcessing(true);
     try {
-      const orderData: CreateOrderRequest = {
-        userId: user.username, // Using username as userId since we don't have user._id
-        username: user.username,
-        items: items,
-        totalAmount: getTotalAmount(),
+      // Map cart items to order format (backend expects product_id, quantity)
+      const orderItems = cart?.items?.map(item => ({
+        product_id: item.product_id._id,
+        quantity: item.quantity
+      })) || [];
+
+      const orderData = {
+        user_id: user._id,
+        items: orderItems,
+        total_price: cart?.items?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0,
       };
 
       await cartService.createOrder(orderData);
-      clearCart();
+      await clearCartContext(user._id);
       alert('Đặt hàng thành công!');
       navigate('/my-orders');
     } catch (error) {
@@ -54,12 +70,21 @@ export const CartPage: React.FC = () => {
     }
   };
 
+  const getTotalAmount = () => {
+    return cart?.items?.reduce((sum, item) => sum + (item.price * item.quantity), 0) || 0;
+  };
+
   return (
     <div className="d-flex flex-column min-vh-100">
       <CustomHeader />
       <div className="container flex-grow-1" style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
-        <h1 className="mb-4">Giỏ hàng của bạn</h1>
-        {items.length === 0 ? (
+        <div className="d-flex align-items-center mb-4">
+          <button className="btn btn-outline-secondary me-3" onClick={() => navigate('/')}>
+            <i className="bi bi-arrow-left"></i> Quay lại
+          </button>
+          <h1 className="mb-0">Giỏ hàng của bạn</h1>
+        </div>
+        {!cart?.items || cart.items.length === 0 ? (
           <div className="alert alert-info" role="alert">
             <h4 className="alert-heading">Giỏ hàng trống!</h4>
             <p>Bạn chưa có sản phẩm nào trong giỏ hàng. Hãy bắt đầu mua sắm!</p>
@@ -78,35 +103,35 @@ export const CartPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item: CartItem) => (
-                    <tr key={item.productId}>
+                  {cart.items.map((item) => (
+                    <tr key={item.product_id._id}>
                       <td>
                         <div className="d-flex align-items-center">
-                          <img src={item.image_url} alt={item.productName} className="img-thumbnail me-2" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
-                          <span>{item.productName}</span>
+                          <img src={item.product_id.image_url} alt={item.product_id.name} className="img-thumbnail me-2" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
+                          <span>{item.product_id.name}</span>
                         </div>
                       </td>
                       <td>{item.price.toLocaleString()} VNĐ</td>
                       <td>
                         <div className="input-group" style={{ width: '120px' }}>
-                          <button className="btn btn-outline-secondary" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}>
+                          <button className="btn btn-outline-secondary" type="button" onClick={() => handleUpdateQuantity(item.product_id._id, item.quantity - 1)}>
                             <i className="fas fa-minus"></i>
                           </button>
                           <input
                             type="number"
                             className="form-control text-center"
                             value={item.quantity}
-                            onChange={(e) => handleUpdateQuantity(item.productId, parseInt(e.target.value) || 1)}
+                            onChange={(e) => handleUpdateQuantity(item.product_id._id, parseInt(e.target.value) || 1)}
                             min="1"
                           />
-                          <button className="btn btn-outline-secondary" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}>
+                          <button className="btn btn-outline-secondary" type="button" onClick={() => handleUpdateQuantity(item.product_id._id, item.quantity + 1)}>
                             <i className="fas fa-plus"></i>
                           </button>
                         </div>
                       </td>
                       <td>{(item.price * item.quantity).toLocaleString()} VNĐ</td>
                       <td>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleRemoveItem(item.productId)}>
+                        <button className="btn btn-danger btn-sm" onClick={() => handleRemoveItem(item.product_id._id)}>
                           <i className="fas fa-trash"></i> Xóa
                         </button>
                       </td>
@@ -127,8 +152,8 @@ export const CartPage: React.FC = () => {
               </table>
             </div>
             <div className="text-end">
-              <button 
-                className="btn btn-primary btn-lg" 
+              <button
+                className="btn btn-primary btn-lg"
                 onClick={handleCheckout}
                 disabled={isProcessing}
               >

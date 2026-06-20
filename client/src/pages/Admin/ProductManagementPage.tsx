@@ -99,20 +99,10 @@ export const ProductManagementPage: React.FC = () => {
   // Hàm mới để tải hình ảnh lên dịch vụ bên ngoài và lấy URL
   const uploadImageAndGetUrl = async (file: File): Promise<string> => {
     try {
-      const options = {
-        maxSizeMB: 1,           // Kích thước tối đa 1MB
-        maxWidthOrHeight: 1920, // Chiều rộng/cao tối đa 1920px
-        useWebWorker: true      // Sử dụng Web Worker để nén không chặn UI
-      };
-      const compressedFile = await imageCompression(file, options);
-
       // --- BẮT ĐẦU PHẦN BẠN CẦN THAY THẾ BẰNG LOGIC TẢI LÊN THỰC TẾ ---
       const formData = new FormData();
-      formData.append('file', compressedFile); // 'file' là tên trường mà Cloudinary mong đợi
-      formData.append('upload_preset', 'zgju4lha'); // Đã thay thế bằng Upload Preset của bạn
-
-      // Thay thế URL này bằng endpoint tải lên của Cloudinary
-      // THAY THẾ 'YOUR_CLOUD_NAME' BẰNG TÊN CLOUD NAME CỦA BẠN TRÊN CLOUDINARY
+      formData.append('file', file);
+      formData.append('upload_preset', 'tamit789'); // Dùng upload preset từ Cloudinary dashboard
       const cloudinaryUploadUrl = 'https://api.cloudinary.com/v1_1/ds51sgdnl/image/upload'; // Đã cập nhật Cloud Name
 
       const uploadResponse = await axios.post(cloudinaryUploadUrl, formData, {
@@ -126,7 +116,7 @@ export const ProductManagementPage: React.FC = () => {
       // --- KẾT THÚC PHẦN CẦN THAY THẾ ---
 
     } catch (error) {
-      console.error('Lỗi khi tải lên và nén hình ảnh:', error);
+      console.error('Lỗi khi tải lên hình ảnh:', error);
       toast.error('Lỗi khi tải lên hình ảnh!'); // Thông báo lỗi bằng toast
       throw error;
     }

@@ -5,6 +5,7 @@ import { RegisterForm } from '@/features/auth/components/RegisterForm';
 import { UserHomePage } from '@/pages/UserHomePage';
 import { CartPage } from '@/pages/CartPage';
 import { ProductDetailPage } from '@/pages/ProductDetailPage';
+import { MyOrdersPage } from '@/pages/MyOrdersPage';
 import { ProductManagementPage } from '@/pages/Admin/ProductManagementPage';
 import { AdminDashboardPage } from '@/pages/Admin/AdminDashboardPage';
 import { CategoryManagementPage } from '@/pages/Admin/CategoryManagementPage';
@@ -25,6 +26,7 @@ export const AppRoutes = () => {
             <Route path="/register" element={<RegisterForm />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
+            <Route path="/my-orders" element={<MyOrdersPage />} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={

@@ -11,8 +11,8 @@ export interface ReviewApiResponse {
   message: string;
   data: {
     reviews: Review[];
-    totalReviews?: number;
-    currentPage?: number;
-    totalPages?: number;
+    total: number;
+    totalPages: number;
+    currentPage: number;
   };
 }

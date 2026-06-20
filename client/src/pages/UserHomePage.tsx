@@ -122,7 +122,7 @@ export const UserHomePage: React.FC = () => {
   }, [checkLoginStatus]); // Bây giờ nó sẽ chỉ chạy 1 lần khi component mount
   const fetchCategories = useCallback(async () => {
     try {
-      const categoriesResponse = await axios.get<CategoryApiResponse>(`${API_BASE_URL}/api/categories`);
+      const categoriesResponse = await axios.get<CategoryApiResponse>(`${API_BASE_URL}/categories`);
       setCategories(categoriesResponse.data.data.categories);
     } catch (err) {
       setError('Failed to fetch categories. Please try again later.');
@@ -276,10 +276,10 @@ export const UserHomePage: React.FC = () => {
             </div>
           </div>
           <div className="w-100 mt-2 mt-lg-0">
-            <input 
-              className="form-control rounded-pill" 
-              type="search" 
-              placeholder="Tìm kiếm sản phẩm..." 
+            <input
+              className="form-control rounded-pill"
+              type="search"
+              placeholder="Tìm kiếm sản phẩm..."
               value={searchQuery}
               onChange={handleSearch}
             />

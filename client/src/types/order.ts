@@ -9,7 +9,7 @@ export interface CartItem {
 
 export interface Order {
   _id?: string;
-  userId: string;
+  user_id: string; // Changed from userId to user_id
   username: string;
   items: CartItem[];
   totalAmount: number;
@@ -19,7 +19,7 @@ export interface Order {
 }
 
 export interface CreateOrderRequest {
-  userId: string;
+  user_id: string;
   username: string;
   items: CartItem[];
   totalAmount: number;

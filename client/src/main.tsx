@@ -12,13 +12,17 @@ import './assets/templateAdmin/css/sb-admin-2.css'
 import './assets/templateAdmin/css/sb-admin-2.min.css'
 import './assets/templateAdmin/vendor/fontawesome-free/css/all.min.css'
 import './index.css'
+import { CartProvider } from './contexts/CartContext'; // Import CartProvider
+
 const queryClient = new QueryClient();
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
-        <App />
+        <CartProvider> {/* Wrap App with CartProvider */}
+          <App />
+        </CartProvider>
       </BrowserRouter>
     </QueryClientProvider>
   </React.StrictMode>

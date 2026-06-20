@@ -22,7 +22,7 @@ export const CustomerReviews: React.FC = () => {
     setError(null);
     try {
       const response = await reviewService.getAllReviews(1, 3);
-      setReviews(response.data.reviews);
+      setReviews(response.data?.data?.reviews || []);
     } catch (err) {
       console.error('Failed to fetch reviews:', err);
       setError('Không thể tải đánh giá của khách hàng.');

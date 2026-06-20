@@ -9,7 +9,6 @@ const axiosClient = axios.create({
 
 axiosClient.interceptors.request.use((config) => {
   const token = localStorage.getItem('token'); // Đã thay đổi từ 'access_token' sang 'token'
-console.log("token CHUNG: ", token);
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }

@@ -4,8 +4,11 @@ import toast, { Toaster } from 'react-hot-toast'; // Import toast và Toaster
 
 // Định nghĩa kiểu dữ liệu cho Order Product
 interface OrderProduct {
-  product_id: string;
-  name: string;
+  product_id: {
+    _id: string;
+    name: string;
+    image_url: string;
+  };
   quantity: number;
   price: number;
 }
@@ -13,10 +16,10 @@ interface OrderProduct {
 // Định nghĩa kiểu dữ liệu cho Order
 interface Order {
   _id: string;
-  user_id: string; // Hoặc có thể là object user đầy đủ
-  products: OrderProduct[];
-  total_amount: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
+  user_id: string | { _id: string; username: string; email: string; phonenumber: string; role: string; status: string; createdAt: string; __v: number }; // Có thể là string hoặc object
+  items: OrderProduct[];
+  total_price: number;
+  status: 'pending' | 'completed' | 'cancelled';
   created_at: string;
   // Thêm các trường khác nếu có
 }
@@ -53,8 +56,8 @@ export const OrderManagementPage: React.FC = () => {
   const [currentOrder, setCurrentOrder] = useState<Order>({
     _id: '',
     user_id: '',
-    products: [],
-    total_amount: 0,
+    items: [],
+    total_price: 0,
     status: 'pending',
     created_at: ''
   });
@@ -67,7 +70,12 @@ export const OrderManagementPage: React.FC = () => {
   const fetchOrders = async (page: number, limit: number) => {
     try {
       setLoading(true);
-      const response = await axiosClient.get<OrderApiResponse>(`http://localhost:8090/api/orders?page=${page}&limit=${limit}`);
+      const token = localStorage.getItem('token');
+      const response = await axiosClient.get<OrderApiResponse>(`http://localhost:8090/api/orders?page=${page}&limit=${limit}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       console.log("order", response);
       setOrders(response.data.data?.orders || []); // Lấy mảng orders từ data.data.orders
       setTotalOrders(response.data.data.total);
@@ -100,7 +108,12 @@ export const OrderManagementPage: React.FC = () => {
 
   const handleStatusUpdate = async () => {
     try {
-      await axiosClient.put(`http://localhost:8090/api/orders/${currentOrder._id}/status`, { status: newStatus });
+      const token = localStorage.getItem('token');
+      await axiosClient.put(`http://localhost:8090/api/orders/${currentOrder._id}/status`, { status: newStatus }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       setIsStatusModalOpen(false);
       fetchOrders(currentPage, ordersPerPage); // Cập nhật lại danh sách sau khi cập nhật trạng thái
       toast.success('Cập nhật trạng thái đơn hàng thành công!'); // Thông báo thành công bằng toast
@@ -120,7 +133,12 @@ export const OrderManagementPage: React.FC = () => {
 
   const handleDeleteOrder = async () => {
     try {
-      await axiosClient.delete(`http://localhost:8090/api/orders/${currentOrder._id}`);
+      const token = localStorage.getItem('token');
+      await axiosClient.delete(`http://localhost:8090/api/orders/${currentOrder._id}`, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       setIsDeleteModalOpen(false);
       fetchOrders(currentPage, ordersPerPage); // Cập nhật lại danh sách sau khi xóa
       toast.success('Xóa đơn hàng thành công!'); // Thông báo thành công bằng toast
@@ -133,9 +151,7 @@ export const OrderManagementPage: React.FC = () => {
   const getStatusBadgeClass = (status: Order['status']) => {
     switch (status) {
       case 'pending': return 'bg-secondary';
-      case 'processing': return 'bg-info';
-      case 'shipped': return 'bg-primary';
-      case 'delivered': return 'bg-success';
+      case 'completed': return 'bg-success';
       case 'cancelled': return 'bg-danger';
       default: return 'bg-secondary';
     }
@@ -191,8 +207,10 @@ export const OrderManagementPage: React.FC = () => {
                 {orders.map((order) => (
                   <tr key={order._id}>
                     <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{order._id}</span></td>
-                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{order.user_id}</span></td>
-                    <td>{order.total_amount.toLocaleString()} VNĐ</td>
+                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>
+                      {typeof order.user_id === 'object' ? order.user_id.username : order.user_id}
+                    </span></td>
+                    <td>{order.total_price?.toLocaleString() || 0} VNĐ</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(order.status)}`}>
                         {order.status.toUpperCase()}
@@ -252,8 +270,8 @@ export const OrderManagementPage: React.FC = () => {
             <div className="modal-header"><h5 className="modal-title">Chi tiết đơn hàng</h5></div>
             <div className="modal-body">
               <p><strong>ID:</strong> {currentOrder._id}</p>
-              <p><strong>ID Người dùng:</strong> {currentOrder.user_id}</p>
-              <p><strong>Tổng tiền:</strong> {currentOrder.total_amount.toLocaleString()} VNĐ</p>
+              <p><strong>ID Người dùng:</strong> {typeof currentOrder.user_id === 'object' ? currentOrder.user_id.username : currentOrder.user_id}</p>
+              <p><strong>Tổng tiền:</strong> {currentOrder.total_price?.toLocaleString() || 0} VNĐ</p>
               <p><strong>Trạng thái:</strong> {currentOrder.status.toUpperCase()}</p>
               <p><strong>Ngày đặt:</strong> {new Date(currentOrder.created_at).toLocaleString()}</p>
               <h6 className="mt-3">Sản phẩm:</h6>
@@ -262,15 +280,13 @@ export const OrderManagementPage: React.FC = () => {
                   <tr>
                     <th>Tên sản phẩm</th>
                     <th>Số lượng</th>
-                    <th>Giá</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {currentOrder.products.map((product, index) => (
+                  {currentOrder.items?.map((item, index: number) => (
                     <tr key={index}>
-                      <td>{product.name}</td>
-                      <td>{product.quantity}</td>
-                      <td>{product.price.toLocaleString()} VNĐ</td>
+                      <td>{item.product_id?.name || 'N/A'}</td>
+                      <td>{item.quantity}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -293,9 +309,7 @@ export const OrderManagementPage: React.FC = () => {
               <p><strong>Trạng thái hiện tại:</strong> {currentOrder.status.toUpperCase()}</p>
               <select className="form-control" value={newStatus} onChange={(e) => setNewStatus(e.target.value as Order['status'])}>
                 <option value="pending">Pending</option>
-                <option value="processing">Processing</option>
-                <option value="shipped">Shipped</option>
-                <option value="delivered">Delivered</option>
+                <option value="completed">Completed</option>
                 <option value="cancelled">Cancelled</option>
               </select>
             </div>

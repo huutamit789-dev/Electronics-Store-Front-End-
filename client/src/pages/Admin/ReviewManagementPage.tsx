@@ -47,9 +47,9 @@ export const ReviewManagementPage: React.FC = () => {
   const fetchReviews = async () => {
     try {
       setLoading(true);
-      const response = await axiosClient.get<ReviewApiResponse>('http://localhost:8090/api/reviews');
+      const response = await axiosClient.get<any>('http://localhost:8090/api/reviews');
   console.log("review", response)
-      setReviews(response.data.data || []);
+      setReviews(response.data?.data?.reviews || []);
     } catch (err) {
       console.error('Error fetching reviews:', err);
       setError('Failed to load reviews. Please try again later.');
@@ -77,7 +77,12 @@ export const ReviewManagementPage: React.FC = () => {
 
   const handleUpdate = async () => {
     try {
-      await axiosClient.put(`http://localhost:8090/api/reviews/${currentReview._id}`, editReview);
+      const token = localStorage.getItem('token');
+      await axiosClient.put(`http://localhost:8090/api/reviews/${currentReview._id}`, { rating: editReview.rating, comment: editReview.comment }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
       setIsEditModalOpen(false);
       fetchReviews();
     } catch (err) {
