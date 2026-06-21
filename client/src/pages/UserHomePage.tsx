@@ -5,10 +5,14 @@ import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
 import { CategoryProducts } from '@/components/products/CategoryProducts';
 import { FlashSale } from '@/components/products/FlashSale';
+import { CustomerReviews } from '@/components/reviews/CustomerReviews';
+import { ChatbotPopup } from '@/components/chatbox/ChatbotPopup';
 import { useCountdown } from '@/hooks/useCountdown';
 import { jwtDecode } from 'jwt-decode';
 import { Product } from '@/types/product';
 import { productService } from '@/features/products/services/productService';
+import { bannerService, Banner } from '@/features/banners/services/bannerService';
+import { footerService, Footer } from '@/features/footers/services/footerService';
 import { useAuthStore } from '@/store/useAuthStore';
 import { useLogout } from '@/features/auth/hooks/useAuth';
 import { useCartStore } from '@/store/useCartStore';
@@ -37,7 +41,10 @@ interface CategoryApiResponse {
 
 export const UserHomePage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [banners, setBanners] = useState<Banner[]>([]);
+  const [footer, setFooter] = useState<Footer | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
@@ -54,6 +61,7 @@ export const UserHomePage: React.FC = () => {
   const { addItem, getTotalItems } = useCartStore();
   const [role, setRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [featuredIndex, setFeaturedIndex] = useState(0);
 
 const categoryScrollRef = useRef<HTMLDivElement>(null);
 
@@ -66,6 +74,23 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
         behavior: 'smooth' // Cuộn mượt
       });
     }
+  };
+
+  // Carousel functions for featured products
+  const featuredItemsPerPage = 4;
+  const featuredTotalSlides = Math.ceil(allProducts.length / featuredItemsPerPage);
+
+  const nextFeaturedSlide = () => {
+    setFeaturedIndex((prev) => (prev + 1) % featuredTotalSlides);
+  };
+
+  const prevFeaturedSlide = () => {
+    setFeaturedIndex((prev) => (prev - 1 + featuredTotalSlides) % featuredTotalSlides);
+  };
+
+  const getFeaturedProducts = () => {
+    const start = featuredIndex * featuredItemsPerPage;
+    return allProducts.slice(start, start + featuredItemsPerPage);
   };
   const fetchProducts = useCallback(async (categoryId: string | null = null) => {
     setLoading(true);
@@ -91,6 +116,22 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
       setError('Failed to fetch products. Please try again later.');
     } finally {
       setLoading(false);
+    }
+  }, []);
+
+  const fetchAllProducts = useCallback(async () => {
+    try {
+      const allProductsResponse = await productService.getAllProducts(1, 100);
+      const allFetchedProducts = allProductsResponse.data.products ?? [];
+      const allProductsWithLocalImages = allFetchedProducts.map((product, index) => ({
+        ...product,
+        image_url: (product.image_url && !product.image_url.includes('placeholder'))
+                     ? product.image_url
+                     : localImages[index % localImages.length]
+      }));
+      setAllProducts(allProductsWithLocalImages);
+    } catch (err) {
+      console.error('Failed to fetch all products:', err);
     }
   }, []);
 
@@ -128,9 +169,45 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
+  useEffect(() => { fetchAllProducts(); }, [fetchAllProducts]);
+
   useEffect(() => { fetchProducts(selectedCategoryId); }, [fetchProducts, selectedCategoryId]);
 
-  const handleCategoryClick = (categoryId: string | null) => setSelectedCategoryId(categoryId);
+  const fetchBanners = useCallback(async () => {
+    try {
+      const bannersResponse = await bannerService.getAllBanners();
+      if (bannersResponse.success) {
+        setBanners(bannersResponse.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch banners:', err);
+    }
+  }, []);
+
+  const fetchFooter = useCallback(async () => {
+    try {
+      const footerResponse = await footerService.getActiveFooter();
+      if (footerResponse.success) {
+        setFooter(footerResponse.data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch footer:', err);
+    }
+  }, []);
+
+  useEffect(() => { fetchBanners(); }, [fetchBanners]);
+  useEffect(() => { fetchFooter(); }, [fetchFooter]);
+
+  const handleCategoryClick = (categoryId: string | null) => {
+    setSelectedCategoryId(categoryId);
+    // Scroll to products section
+    setTimeout(() => {
+      const productsSection = document.getElementById('products-section');
+      if (productsSection) {
+        productsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+    }, 100);
+  };
 
   // Modal Handlers
   const handleShowLoginModal = () => { setShowLoginModal(true); setShowRegisterModal(false); };
@@ -146,12 +223,12 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
     const query = searchQuery.toLowerCase();
-    return products.filter(product =>
+    return allProducts.filter(product =>
       product.name.toLowerCase().includes(query) ||
       product.description?.toLowerCase().includes(query) ||
       (product.cate_id && typeof product.cate_id === 'object' && product.cate_id.name?.toLowerCase().includes(query))
     );
-  }, [products, searchQuery]);
+  }, [allProducts, searchQuery, products]);
 
   const handleAddToCart = (product: Product) => {
     if (!isLoggedIn) {
@@ -333,19 +410,34 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
         <section className="row g-3 mb-5">
           <div className="col-md-6">
             <div className="card border-0 rounded-4 premium-shadow img-zoom-container h-100 text-white cursor-pointer overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1616348436168-de43ad0db179?w=1200&q=80" className="card-img h-100 object-fit-cover" alt="Main Banner" style={{ minHeight: '350px',height: '360px' }} />
+              <img 
+                src={banners.find(b => b.position === 'main')?.image_url} 
+                className="card-img h-100 object-fit-cover" 
+                alt="Main Banner" 
+                style={{ minHeight: '350px',height: '360px' }} 
+              />
               <div className="card-img-overlay d-flex flex-column justify-content-end p-4" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
-                <h2 className="card-title fw-bold">Siêu phẩm công nghệ</h2>
-                <p className="card-text text-light">Mua sắm ngay với ngàn ưu đãi hấp dẫn.</p>
+                <h2 className="card-title fw-bold">{banners.find(b => b.position === 'main')?.title}</h2>
+                <p className="card-text text-light">{banners.find(b => b.position === 'main')?.description}</p>
               </div>
             </div>
           </div>
           <div className="col-md-6 d-flex flex-column gap-3">
             <div className="card border-0 rounded-4 premium-shadow img-zoom-container flex-grow-1 cursor-pointer overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1593642532400-2682810df593?w=600&q=80" className="card-img h-100 object-fit-cover" alt="Sub Banner 1" style={{ height: '174px' }} />
+              <img 
+                src={banners.find(b => b.position === 'sub1')?.image_url} 
+                className="card-img h-100 object-fit-cover" 
+                alt="Sub Banner 1" 
+                style={{ height: '174px' }} 
+              />
             </div>
             <div className="card border-0 rounded-4 premium-shadow img-zoom-container flex-grow-1 cursor-pointer overflow-hidden">
-              <img src="https://images.unsplash.com/photo-1550009158-9ebf69173e03?w=600&q=80" className="card-img h-100 object-fit-cover" alt="Sub Banner 2" style={{ height: '174px' }}/>
+              <img 
+                src={banners.find(b => b.position === 'sub2')?.image_url} 
+                className="card-img h-100 object-fit-cover" 
+                alt="Sub Banner 2" 
+                style={{ height: '174px' }}
+              />
             </div>
           </div>
         </section>
@@ -398,51 +490,56 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
         )}
 
         {/* Các Component Tùy Chọn Của Bạn (Flashsale / Category Products) */}
-        <CategoryProducts categoryId={selectedCategoryId} categories={categories} products={products} />
-        <FlashSale products={products} countdown={countdown} />
+        <div id="products-section">
+          <CategoryProducts categoryId={selectedCategoryId} categories={categories} />
+        </div>
+        <FlashSale products={allProducts} countdown={countdown} />
 
         {/* Sản phẩm nổi bật / Sản phẩm Hot (Áp dụng UI mới) */}
         <section className="mb-5 mt-5">
           <h2 className="fs-4 fw-bold mb-4 d-flex align-items-center gap-2">
             <i className="bi bi-fire text-brand-red"></i> Sản phẩm nổi bật
           </h2>
-          <div className="row row-cols-2 row-cols-md-4 g-4">
-            {products.slice(0, 8).map(product => (
-              <div className="col" key={product._id}>
-                <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column bg-white">
-                  <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
-                    <img src={product.image_url} className="card-img-top rounded-3 object-fit-contain mb-3" height="180" alt={product.name} />
-                    <h6 className="fw-semibold text-truncate">{product.name}</h6>
-                    <div className="text-brand-red fw-bold fs-5 mb-3">{product.price.toLocaleString()}đ</div>
-                  </Link>
-                  <button className="btn btn-light border w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red transition" onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}>
-                    Thêm vào giỏ
-                  </button>
+          <div className="position-relative">
+            <button
+              className="btn btn-light position-absolute top-50 start-0 translate-middle-y z-2 rounded-circle shadow-sm border"
+              style={{ width: '36px', height: '36px', padding: 0, marginLeft: '-18px' }}
+              onClick={prevFeaturedSlide}
+              disabled={featuredTotalSlides <= 1}
+            >
+              <i className="bi bi-chevron-left text-secondary"></i>
+            </button>
+
+            <div className="row row-cols-2 row-cols-md-4 g-4">
+              {getFeaturedProducts().map(product => (
+                <div className="col" key={product._id}>
+                  <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column bg-white">
+                    <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
+                      <img src={product.image_url} className="card-img-top rounded-3 object-fit-contain mb-3" height="180" alt={product.name} />
+                      <h6 className="fw-semibold text-truncate">{product.name}</h6>
+                      <div className="text-brand-red fw-bold fs-5 mb-3">{product.price.toLocaleString()}đ</div>
+                    </Link>
+                    <button className="btn btn-light border w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red transition" onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}>
+                      Thêm vào giỏ
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
+
+            <button
+              className="btn btn-light position-absolute top-50 end-0 translate-middle-y z-2 rounded-circle shadow-sm border"
+              style={{ width: '36px', height: '36px', padding: 0, marginRight: '-18px' }}
+              onClick={nextFeaturedSlide}
+              disabled={featuredTotalSlides <= 1}
+            >
+              <i className="bi bi-chevron-right text-secondary"></i>
+            </button>
           </div>
         </section>
 
         {/* Đánh giá khách hàng */}
-        <section className="mb-5">
-          <h2 className="fs-3 fw-bold mb-4">Đánh giá khách hàng</h2>
-          <div className="row g-4">
-            {[
-              { name: 'Nguyễn Văn A', stars: '⭐⭐⭐⭐⭐', text: '"ElectroStore giao hàng cực nhanh, hàng chính hãng, đóng gói kỹ càng. Rất hài lòng!"' },
-              { name: 'Trần Thị B', stars: '⭐⭐⭐⭐☆', text: '"Giá cả hợp lý, nhân viên tư vấn nhiệt tình. Sẽ ủng hộ shop thêm nhiều lần nữa."' },
-              { name: 'Lê Văn C', stars: '⭐⭐⭐⭐⭐', text: '"Hàng giống mô tả 100%, chất liệu tốt. Cảm ơn shop rất nhiều vì món quà nhỏ đi kèm."' }
-            ].map((review, idx) => (
-              <div className="col-md-4" key={idx}>
-                <div className="card rounded-4 p-4 border-light shadow-sm h-100">
-                  <div className="text-warning mb-2">{review.stars}</div>
-                  <p className="text-muted fw-medium mb-3">{review.text}</p>
-                  <p className="small fw-bold text-secondary mb-0 mt-auto">— {review.name}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
+        <CustomerReviews />
       </main>
 
       {/* Footer Mới */}
@@ -450,21 +547,43 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
         <div className="container">
           <div className="row g-4">
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-5">ElectroStore</h4>
-              <p className="text-secondary small">Hệ thống bán lẻ thiết bị công nghệ chính hãng hàng đầu Việt Nam.</p>
+              <h4 className="fw-bold mb-3 fs-5">{footer?.company_name || 'ElectroStore'}</h4>
+              <p className="text-secondary small">{footer?.company_description || 'Hệ thống bán lẻ thiết bị công nghệ chính hãng hàng đầu Việt Nam.'}</p>
             </div>
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-6">Chính sách</h4>
+              <h4 className="fw-bold mb-3 fs-6">{footer?.policy_title || 'Chính sách'}</h4>
               <ul className="list-unstyled text-secondary small">
-                <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Bảo hành</Link></li>
-                <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Đổi trả</Link></li>
+                {footer?.policies && footer.policies.length > 0 ? (
+                  footer.policies.map((policy, index) => (
+                    <li key={index} className="mb-2">
+                      <Link to={policy.link} className="text-decoration-none text-secondary">{policy.title}</Link>
+                    </li>
+                  ))
+                ) : (
+                  <>
+                    <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Bảo hành</Link></li>
+                    <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Đổi trả</Link></li>
+                  </>
+                )}
               </ul>
             </div>
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-6">Liên hệ</h4>
+              <h4 className="fw-bold mb-3 fs-6">
+                {footer?.contact_title || 'Liên hệ'}
+              </h4>
               <ul className="list-unstyled text-secondary small">
-                <li className="mb-2"><i className="bi bi-telephone me-2"></i> Hotline: 1900 xxxx</li>
-                <li className="mb-2"><i className="bi bi-envelope me-2"></i> CSKH: cskh@electrostore.com</li>
+                {footer?.contacts && footer.contacts.length > 0 ? (
+                  footer.contacts.map((contact, index) => (
+                    <li key={index} className="mb-2">
+                      <i className={`bi ${contact.icon} me-2`}></i> {contact.text}
+                    </li>
+                  ))
+                ) : (
+                  <>
+                    <li className="mb-2"><i className="bi bi-telephone me-2"></i> Hotline: 1900 xxxx</li>
+                    <li className="mb-2"><i className="bi bi-envelope me-2"></i> CSKH: cskh@electrostore.com</li>
+                  </>
+                )}
               </ul>
             </div>
           </div>
@@ -498,6 +617,9 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
           </div>
         </div>
       </div>
+
+      {/* Chatbot Popup */}
+      <ChatbotPopup />
     </div>
   );
 };

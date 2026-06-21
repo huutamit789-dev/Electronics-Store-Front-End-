@@ -5,6 +5,7 @@ import { UserHomePage } from '@/pages/UserHomePage';
 import { CartPage } from '@/pages/CartPage';
 import { ProductDetailPage } from '@/pages/ProductDetailPage';
 import { MyOrdersPage } from '@/pages/MyOrdersPage';
+import { LoginPage } from '@/pages/LoginPage';
 import { ProductManagementPage } from '@/pages/Admin/ProductManagementPage';
 import { AdminDashboardPage } from '@/pages/Admin/AdminDashboardPage';
 import { CategoryManagementPage } from '@/pages/Admin/CategoryManagementPage';
@@ -13,6 +14,8 @@ import { OrderManagementPage } from '@/pages/Admin/OrderManagementPage';
 import { ReviewManagementPage } from '@/pages/Admin/ReviewManagementPage';
 import { PaymentManagementPage } from '@/pages/Admin/PaymentManagementPage';
 import { OrderHistoryPage } from '@/pages/Admin/OrderHistoryPage';
+import { AdminBannerPage } from '@/pages/Admin/AdminBannerPage';
+import { AdminFooterPage } from '@/pages/Admin/AdminFooterPage';
 import { AdminLayout } from '@/components/layout/Admin/AdminLayout';
 import { AdminProtectedRoute } from '@/components/layout/Admin/AdminProtectedRoute';
 
@@ -21,7 +24,7 @@ export const AppRoutes = () => {
         <Routes>
             {/* Public Routes */}
             <Route path="/" element={<UserHomePage />} />
-            <Route path="/login" element={<Navigate to="/" replace />} />
+            <Route path="/login" element={<LoginPage />} />
             <Route path="/register" element={<RegisterForm />} />
             <Route path="/cart" element={<CartPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
@@ -39,6 +42,8 @@ export const AppRoutes = () => {
                 <Route path="dashboard" element={<AdminDashboardPage />} />
                 <Route path="products" element={<ProductManagementPage />} />
                 <Route path="categories" element={<CategoryManagementPage />} />
+                <Route path="banners" element={<AdminBannerPage />} />
+                <Route path="footers" element={<AdminFooterPage />} />
                 <Route path="users" element={<UserManagementPage />} />
                 <Route path="orders" element={<OrderManagementPage />} />
                 <Route path="reviews" element={<ReviewManagementPage />} />

@@ -16,6 +16,7 @@ interface Category {
 interface CategoryProductsProps {
   categoryId: string | null;
   categories: Category[];
+  products?: Product[];
 }
 
 export const CategoryProducts: React.FC<CategoryProductsProps> = ({ categoryId, categories }) => {

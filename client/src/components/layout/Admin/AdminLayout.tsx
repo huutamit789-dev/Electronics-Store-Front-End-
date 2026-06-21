@@ -86,6 +86,30 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
           </Link>
         </li>
 
+        {/* Divider */}
+        <hr className="sidebar-divider" />
+
+        {/* Heading */}
+        <div className="sidebar-heading">
+          Hệ thống
+        </div>
+
+        {/* Nav Item - Banner */}
+        <li className="nav-item">
+          <Link className="nav-link" to="/admin/banners">
+            <i className="fas fa-fw fa-image"></i> {/* Icon cho Banner */}
+            <span>Banner</span>
+          </Link>
+        </li>
+
+        {/* Nav Item - Footer */}
+        <li className="nav-item">
+          <Link className="nav-link" to="/admin/footers">
+            <i className="fas fa-fw fa-shoe-prints"></i> {/* Icon cho Footer */}
+            <span>Footer</span>
+          </Link>
+        </li>
+
         {/* Nav Item - Đơn hàng */}
         <li className="nav-item">
           <Link className="nav-link" to="/admin/orders">

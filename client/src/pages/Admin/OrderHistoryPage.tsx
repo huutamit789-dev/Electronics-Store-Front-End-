@@ -1,22 +1,34 @@
 import React, { useEffect, useState } from 'react';
 import axiosClient from "@/api/axiosClient";
 import { API_BASE_URL } from '@/config/constants';
-// Định nghĩa kiểu dữ liệu cho Order History Item (có thể giống Order hoặc có thêm/bớt trường)
+
+// Định nghĩa kiểu dữ liệu cho Order History Item
 interface OrderHistoryItem {
   _id: string;
-  user_id: string;
-  products: { product_id: string; name: string; quantity: number; price: number }[];
-  total_amount: number;
-  status: 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled';
-  created_at: string;
-  // Thêm các trường khác nếu có
+  order_id: {
+    _id: string;
+    user_id: string;
+    items: { product_id: { name: string }; quantity: number; price: number }[];
+    total_price: number;
+    status: string;
+    created_at: string;
+  };
+  old_status: string;
+  new_status: string;
+  changed_at: string;
+  note?: string;
 }
 
 // Định nghĩa kiểu dữ liệu cho Order History API Response
 interface OrderHistoryApiResponse {
     success: boolean;
     message: string;
-    data: OrderHistoryItem[]; // Giả định API trả về trực tiếp mảng OrderHistoryItem
+    data: {
+      history: OrderHistoryItem[];
+      total: number;
+      totalPages: number;
+      currentPage: number;
+    };
 }
 
 export const OrderHistoryPage: React.FC = () => {
@@ -28,9 +40,14 @@ export const OrderHistoryPage: React.FC = () => {
     const fetchOrderHistory = async () => {
       try {
         setLoading(true);
-        // Endpoint: GET /api/orderHistory
-        const response = await axiosClient.get<OrderHistoryApiResponse>(`${API_BASE_URL}/orderHistory`);
-        setOrderHistory(response.data.data || []);
+        const token = localStorage.getItem('token');
+        // Endpoint: GET /api/order-history
+        const response = await axiosClient.get<OrderHistoryApiResponse>(`${API_BASE_URL}/order-history`, {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        setOrderHistory(response.data.data.history || []);
         console.log('Fetched order history:', response.data.data);
       } catch (err) {
         console.error('Error fetching order history:', err);
@@ -48,13 +65,14 @@ export const OrderHistoryPage: React.FC = () => {
     // Logic để xem chi tiết đơn hàng lịch sử
   };
 
-  const getStatusBadgeClass = (status: OrderHistoryItem['status']) => {
+  const getStatusBadgeClass = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-secondary';
       case 'processing': return 'bg-info';
       case 'shipped': return 'bg-primary';
       case 'delivered': return 'bg-success';
       case 'cancelled': return 'bg-danger';
+      case 'completed': return 'bg-success';
       default: return 'bg-secondary';
     }
   };
@@ -92,28 +110,34 @@ export const OrderHistoryPage: React.FC = () => {
             <table className="table table-bordered" id="dataTable" width="100%" cellSpacing="0">
               <thead>
                 <tr>
+                  <th>ID Lịch sử</th>
                   <th>ID Đơn hàng</th>
                   <th>ID Người dùng</th>
-                  <th>Tổng tiền</th>
-                  <th>Trạng thái</th>
-                  <th>Ngày đặt</th>
+                  <th>Trạng thái cũ</th>
+                  <th>Trạng thái mới</th>
+                  <th>Thời gian thay đổi</th>
                   <th>Hành động</th>
                 </tr>
               </thead>
               <tbody>
-                {orderHistory.map((order) => (
-                  <tr key={order._id}>
-                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{order._id}</span></td>
-                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{order.user_id}</span></td>
-                    <td>{order.total_amount.toLocaleString()} VNĐ</td>
+                {orderHistory.map((history) => (
+                  <tr key={history._id}>
+                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{history._id}</span></td>
+                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{history.order_id?._id || 'N/A'}</span></td>
+                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{history.order_id?.user_id || 'N/A'}</span></td>
                     <td>
-                      <span className={`badge ${getStatusBadgeClass(order.status)}`}>
-                        {order.status.toUpperCase()}
+                      <span className={`badge ${getStatusBadgeClass(history.old_status)}`}>
+                        {history.old_status?.toUpperCase() || 'N/A'}
                       </span>
                     </td>
-                    <td>{new Date(order.created_at).toLocaleString()}</td>
                     <td>
-                      <button type="button" className="btn btn-info btn-sm" onClick={() => handleViewOrderDetails(order._id)}>
+                      <span className={`badge ${getStatusBadgeClass(history.new_status)}`}>
+                        {history.new_status?.toUpperCase() || 'N/A'}
+                      </span>
+                    </td>
+                    <td>{new Date(history.changed_at).toLocaleString()}</td>
+                    <td>
+                      <button type="button" className="btn btn-info btn-sm" onClick={() => handleViewOrderDetails(history.order_id?._id || '')}>
                         <i className="fas fa-eye"></i> Xem chi tiết
                       </button>
                     </td>

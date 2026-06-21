@@ -254,7 +254,24 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isModal = false, onS
           {errors.phonenumber && <div className="invalid-feedback">{errors.phonenumber.message}</div>}
         </div>
 
-        <button type="submit" className="btn btn-pinterest w-100 mb-3 bg-danger" disabled={isPending}>
+        <button
+          type="submit"
+          className="btn w-100 mb-3"
+          disabled={isPending}
+          style={{
+            backgroundColor: '#dc3545',
+            color: 'white',
+            fontWeight: '600',
+            padding: '0.75rem',
+            borderRadius: '25px',
+            border: 'none',
+            boxShadow: '0 4px 6px rgba(220, 53, 69, 0.3)',
+            transition: 'all 0.3s ease',
+            opacity: isPending ? 0.6 : 1
+          }}
+          onMouseEnter={(e) => !isPending && (e.currentTarget.style.backgroundColor = '#c82333')}
+          onMouseLeave={(e) => !isPending && (e.currentTarget.style.backgroundColor = '#dc3545')}
+        >
           {isPending ? 'Đang đăng ký...' : 'Đăng ký ngay'}
         </button>
       </form>

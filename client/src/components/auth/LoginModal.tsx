@@ -65,7 +65,19 @@ export const LoginModal: React.FC<LoginModalProps> = ({ show, onClose, onSwitchT
                   <p className="text-muted mb-4">Bạn đã đăng nhập thành công</p>
                   <button
                     onClick={logout}
-                    className="btn btn-pinterest w-100 mb-3 bg-danger"
+                    className="btn btn-pinterest w-100 mb-3"
+                    style={{
+                      backgroundColor: '#dc3545',
+                      color: 'white',
+                      fontWeight: '600',
+                      padding: '0.75rem',
+                      borderRadius: '25px',
+                      border: 'none',
+                      boxShadow: '0 4px 6px rgba(220, 53, 69, 0.3)',
+                      transition: 'all 0.3s ease'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#c82333'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#dc3545'}
                   >
                     Đăng xuất
                   </button>
@@ -105,7 +117,24 @@ export const LoginModal: React.FC<LoginModalProps> = ({ show, onClose, onSwitchT
                       </div>
                     </div>
 
-                    <button type="submit" className="btn btn-pinterest w-100 mb-3 bg-danger" disabled={isPending || isLoading}>
+                    <button
+                      type="submit"
+                      className="btn w-100 mb-3"
+                      disabled={isPending || isLoading}
+                      style={{
+                        backgroundColor: '#dc3545',
+                        color: 'white',
+                        fontWeight: '600',
+                        padding: '0.75rem',
+                        borderRadius: '25px',
+                        border: 'none',
+                        boxShadow: '0 4px 6px rgba(220, 53, 69, 0.3)',
+                        transition: 'all 0.3s ease',
+                        opacity: isPending || isLoading ? 0.6 : 1
+                      }}
+                      onMouseEnter={(e) => !isPending && !isLoading && (e.currentTarget.style.backgroundColor = '#c82333')}
+                      onMouseLeave={(e) => !isPending && !isLoading && (e.currentTarget.style.backgroundColor = '#dc3545')}
+                    >
                       {isPending || isLoading ? 'Đang xử lý...' : 'Đăng nhập'}
                     </button>
                   </form>

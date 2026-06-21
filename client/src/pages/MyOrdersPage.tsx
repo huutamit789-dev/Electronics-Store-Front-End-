@@ -282,7 +282,7 @@ export const MyOrdersPage: React.FC = () => {
         </div>
       </header>
 
-      
+
 
       <div className="container flex-grow-1" style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
         <div className="d-flex align-items-center mb-4">

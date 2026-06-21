@@ -385,9 +385,7 @@ export const ProductDetailPage: React.FC = () => {
                 <i className="fas fa-shopping-cart me-2"></i>
                 {product && product.stock_quantity <= 0 ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
               </button>
-              <button className="btn btn-outline-danger btn-lg">
-                <i className="fas fa-phone me-2"></i> Gọi tư vấn
-              </button>
+
             </div>
           </div>
         </div>
