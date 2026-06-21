@@ -246,6 +246,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
       price: product.price,
       quantity: 1,
       image_url: product.image_url,
+      stock_quantity: product.stock_quantity
     };
     addItem(cartItem);
     setShowCartToast(true);
