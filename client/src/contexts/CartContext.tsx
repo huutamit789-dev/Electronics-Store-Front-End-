@@ -125,7 +125,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       const response = await axiosClient.get(`${API_BASE_URL}/cart/${userId}`);
       console.log("dữ liệu cart response:", response.data)
       if (response.data.success) {
-        console.log("Cart data set:", response.data.data);
         setCart(response.data.data);
       } else {
         console.log("Fetch cart failed:", response.data.message);

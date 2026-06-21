@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { useLogout } from '@/features/auth/hooks/useAuth';
+import {useCartStore} from "@/store/useCartStore";
 
 interface AdminLayoutProps {
   // Khi AdminLayout được dùng làm layout route, nó không nhận children trực tiếp
@@ -20,6 +21,7 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
   // Hàm xử lý đăng xuất
   const handleLogout = () => {
     logout();
+    useCartStore.getState().clearCart();
   };
 
   // Thêm/bỏ class 'toggled' vào body để điều khiển sidebar

@@ -19,7 +19,8 @@ export const CartPage: React.FC = () => {
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showSuccessToast, setShowSuccessToast] = useState(false);
-
+  const [showWarningModal, setShowWarningModal] = useState(false);
+  const [warningMessage, setWarningMessage] = useState('');
   const handleUpdateQuantity = (productId: string, quantity: number) => {
     updateQuantity(productId, quantity);
   };
@@ -36,11 +37,6 @@ export const CartPage: React.FC = () => {
     // Check if user is logged in
     if (!isLoggedIn || !user) {
       handleShowLoginModal();
-      return;
-    }
-
-    if (!items || items.length === 0) {
-      alert('Giỏ hàng trống!');
       return;
     }
 
@@ -79,7 +75,6 @@ export const CartPage: React.FC = () => {
       }, 2000);
     } catch (error) {
       console.error('Error creating order:', error);
-      alert('Đặt hàng thất bại. Vui lòng thử lại!');
     } finally {
       setIsProcessing(false);
     }

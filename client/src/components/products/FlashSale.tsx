@@ -18,7 +18,7 @@ export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => 
   const { addItem } = useCartStore();
   const { isLoggedIn } = useAuthStore();
 
-  const itemsPerPage = 4;
+  const itemsPerPage = 4; // Changed from 4 to 10
   const totalSlides = Math.ceil(products.length / itemsPerPage);
 
   const nextSlide = () => {
@@ -47,7 +47,6 @@ export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => 
       quantity: 1,
       image_url: product.image_url || '',
     });
-    alert(`Đã thêm ${product.name} vào giỏ hàng!`);
   };
 
   // Modal handlers
@@ -164,7 +163,7 @@ export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => 
 
       {/* Modals */}
       <LoginModal show={showLoginModal} onClose={handleCloseLoginModal} onSwitchToRegister={handleSwitchToRegister} onLoginSuccess={handleCloseLoginModal} />
-      <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleCloseRegisterModal} />
+      <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleCloseLoginModal} />
     </>
   );
 };

@@ -56,7 +56,7 @@ export const MyOrdersPage: React.FC = () => {
   const [role, setRole] = useState<string | null>(null);
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const { logout } = useLogout();
-  const { getTotalItems } = useCartStore();
+  const { getCountUniqueItems } = useCartStore();
 
   useEffect(() => {
     if (!isLoggedIn || !user) {
@@ -252,9 +252,9 @@ export const MyOrdersPage: React.FC = () => {
           <div className="d-flex align-items-center gap-4 ms-auto text-center">
             <Link to="/cart" className="cursor-pointer text-white text-decoration-none hover-lift">
               <i className="bi bi-cart3 fs-5 position-relative">
-                {getTotalItems() > 0 && (
+                {getCountUniqueItems() > 0 && (
                   <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
-                    {getTotalItems()}
+                    {getCountUniqueItems()}
                   </span>
                 )}
               </i>

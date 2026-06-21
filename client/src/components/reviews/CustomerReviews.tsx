@@ -110,7 +110,6 @@ export const CustomerReviews: React.FC = () => {
     setError(null);
     try {
       const response = await reviewService.getAllReviews(1, 3);
-      console.log('Reviews data222:', response);
       setReviews(response.data?.reviews || []);
     } catch (err) {
       console.error('Failed to fetch reviews:', err);

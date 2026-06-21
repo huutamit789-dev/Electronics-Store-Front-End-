@@ -4,6 +4,7 @@ import { useAuthStore } from '@/store/useAuthStore';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
+import {useCartStore} from "@/store/useCartStore";
 
 interface DecodedToken {
   role?: string;
@@ -87,7 +88,8 @@ export const useLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('username');
     localStorage.removeItem('role');
-    
+    localStorage.removeItem('cartItems');
+    useCartStore.getState().clearCart();
     setIsLoggedIn(false);
     setUser(null);
     toast.success("Đăng xuất thành công!");

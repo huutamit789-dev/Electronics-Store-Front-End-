@@ -73,8 +73,7 @@ export const ProductDetailPage: React.FC = () => {
 
   const { isLoggedIn, user } = useAuthStore();
   const { logout } = useLogout();
-  const { addItem, getTotalItems } = useCartStore();
-
+  const { addItem, getCountUniqueItems } = useCartStore();
   useEffect(() => {
     // Inject custom styles
     const styleSheet = document.createElement("style");
@@ -113,50 +112,66 @@ export const ProductDetailPage: React.FC = () => {
     };
   }, [id]);
 
-  const handleAddToCart = () => {
-    console.log('=== handleAddToCart called ===');
-    console.log('Product:', product);
-    console.log('User:', user);
-    console.log('Quantity:', quantity);
-
-    if (!product) {
-      alert('Không thể thêm sản phẩm vào giỏ hàng vì thông tin sản phẩm không đầy đủ.');
-      return;
+  // Add this useEffect to log state changes for debugging
+  useEffect(() => {
+    console.log('ProductDetailPage: showStockWarning state changed:', showStockWarning);
+    if (showStockWarning) {
+      console.log('ProductDetailPage: Stock Warning Message:', stockWarningMessage);
     }
+  }, [showStockWarning, stockWarningMessage]);
 
+
+  const handleAddToCart = () => {
+    if (!product) return;
     if (!isLoggedIn) {
       handleShowLoginModal();
       return;
     }
 
-    if (quantity < 1) {
-      alert('Số lượng phải lớn hơn 0.');
+    // 1. Tính toán số lượng đã có trong giỏ hàng trước đó
+    const currentQtyInCart = useCartStore.getState().getItemQuantity(product._id);
+    const totalRequested = currentQtyInCart + quantity;
+
+    // 2. Validate tồn kho thực tế (Tồn kho tại DB - Số lượng đã có trong giỏ)
+    if (product.stock_quantity <= 0) {
+      setStockWarningMessage('Sản phẩm đã hết hàng.');
+      setShowStockWarning(true);
       return;
     }
 
+    if (totalRequested > product.stock_quantity) {
+      const remaining = product.stock_quantity - currentQtyInCart;
+      const msg = remaining > 0
+          ? `Bạn đã có ${currentQtyInCart} cái trong giỏ. Chỉ có thể thêm tối đa ${remaining} cái nữa.`
+          : `Sản phẩm này đã đạt giới hạn tồn kho trong giỏ hàng của bạn.`;
+
+      setStockWarningMessage(msg);
+      setShowStockWarning(true);
+      return;
+    }
+
+    // 3. Thực hiện thêm vào giỏ
     const cartItem = {
       productId: product._id,
       productName: product.name,
       price: product.price,
       quantity: quantity,
       image_url: product.image_url,
+      stock_quantity: product.stock_quantity
     };
 
     addItem(cartItem);
     setShowCartToast(true);
-    setQuantity(1); // Reset quantity after adding
+    setQuantity(1);
 
-    // Auto close toast after 2 seconds
-    setTimeout(() => {
-      setShowCartToast(false);
-    }, 2000);
+    setTimeout(() => setShowCartToast(false), 2000);
   };
 
   const handleBuyNow = () => {
-    console.log('=== handleBuyNow called ===');
-    console.log('Product:', product);
-    console.log('User:', user);
-    console.log('Quantity:', quantity);
+    console.log('ProductDetailPage: === handleBuyNow called ===');
+    console.log('ProductDetailPage: Product:', product);
+    console.log('ProductDetailPage: User:', user);
+    console.log('ProductDetailPage: Quantity at click:', quantity); // Log quantity at the moment of click
 
     if (!product) {
       alert('Không thể thêm sản phẩm vào giỏ hàng vì thông tin sản phẩm không đầy đủ.');
@@ -168,17 +183,43 @@ export const ProductDetailPage: React.FC = () => {
       return;
     }
 
-    if (quantity < 1) {
-      alert('Số lượng phải lớn hơn 0.');
+    // Re-validate quantity right before buying now
+    if (product.stock_quantity <= 0) {
+      console.log('ProductDetailPage: handleBuyNow: Stock is 0 or less. Showing warning.');
+      const msg = 'Sản phẩm này đã hết hàng.';
+      setStockWarningMessage(msg);
+      setShowStockWarning(true);
+      alert(msg); // Temporary alert for debugging
       return;
     }
 
+    if (quantity < 1) {
+      console.log('ProductDetailPage: handleBuyNow: Quantity less than 1. Showing warning.');
+      const msg = 'Số lượng phải lớn hơn 0.';
+      setStockWarningMessage(msg);
+      setShowStockWarning(true);
+      alert(msg); // Temporary alert for debugging
+      return;
+    }
+
+    if (quantity > product.stock_quantity) {
+      console.log('ProductDetailPage: handleBuyNow: Quantity exceeds stock. Showing warning.');
+      const msg = `Số lượng bạn chọn (${quantity}) vượt quá số lượng tồn kho (${product.stock_quantity}).`;
+      setStockWarningMessage(msg);
+      setShowStockWarning(true);
+      alert(msg); // Temporary alert for debugging
+      return; // Crucial: stop execution if quantity is invalid
+    }
+
+    console.log('ProductDetailPage: handleBuyNow: Calling addItem with quantity:', quantity); // Log before addItem
+    alert(`Mua ngay: ${quantity} sản phẩm.`); // Temporary alert before adding
     const cartItem = {
       productId: product._id,
       productName: product.name,
       price: product.price,
       quantity: quantity,
       image_url: product.image_url,
+      stock_quantity: product.stock_quantity
     };
 
     addItem(cartItem);
@@ -186,15 +227,40 @@ export const ProductDetailPage: React.FC = () => {
   };
 
   const handleQuantityChange = (newQuantity: number) => {
-    if (newQuantity >= 1) {
-      // Check if quantity exceeds stock
-      if (product && product.stock_quantity && newQuantity > product.stock_quantity) {
-        setStockWarningMessage(`Sản phẩm chỉ còn ${product.stock_quantity} cái, không thể chọn ${newQuantity} cái`);
-        setShowStockWarning(true);
-        return;
-      }
-      setQuantity(newQuantity);
+    console.log('ProductDetailPage: handleQuantityChange called with newQuantity (input value):', newQuantity);
+    if (!product) {
+      console.log('ProductDetailPage: handleQuantityChange: Product data not available.');
+      return;
     }
+
+    const maxQuantity = product.stock_quantity || 0;
+    console.log('ProductDetailPage: handleQuantityChange: Max stock:', maxQuantity);
+
+    let updatedQuantity = newQuantity;
+
+    // Ensure quantity is at least 1, unless stock is 0
+    if (updatedQuantity < 1 && maxQuantity > 0) {
+      console.log('ProductDetailPage: handleQuantityChange: Quantity less than 1, setting to 1.');
+      updatedQuantity = 1;
+    } else if (updatedQuantity < 0) { // Prevent negative quantity from direct input
+      console.log('ProductDetailPage: handleQuantityChange: Quantity negative, setting to 0.');
+      updatedQuantity = 0;
+    }
+
+    // Cap quantity at maxQuantity and show warning if exceeded
+    if (updatedQuantity > maxQuantity) {
+      console.log('ProductDetailPage: handleQuantityChange: Quantity exceeds stock. Setting to max stock and showing warning.');
+      const msg = `Sản phẩm chỉ còn ${maxQuantity} cái, không thể chọn ${newQuantity} cái.`;
+      setStockWarningMessage(msg);
+      setShowStockWarning(true);
+      updatedQuantity = maxQuantity; // Set to max available stock
+    } else {
+      console.log('ProductDetailPage: handleQuantityChange: Quantity is valid, hiding warning.');
+      setShowStockWarning(false); // Hide warning if quantity is valid
+    }
+    
+    setQuantity(updatedQuantity);
+    console.log('ProductDetailPage: handleQuantityChange: Final quantity state set to:', updatedQuantity);
   };
 
   // Modal handlers
@@ -273,9 +339,9 @@ export const ProductDetailPage: React.FC = () => {
           <div className="d-flex align-items-center gap-4 ms-auto text-center">
             <Link to="/cart" className="cursor-pointer text-white text-decoration-none hover-lift">
               <i className="bi bi-cart3 fs-5 position-relative">
-                {getTotalItems() > 0 && (
+                {getCountUniqueItems() > 0 && (
                   <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
-                    {getTotalItems()}
+                    {getCountUniqueItems()}
                   </span>
                 )}
               </i>
@@ -357,18 +423,18 @@ export const ProductDetailPage: React.FC = () => {
               <h6 className="fw-bold mb-3">Số lượng</h6>
               <div className="d-flex align-items-center gap-3">
                 <div className="input-group" style={{ maxWidth: '150px', position: 'relative', zIndex: 2 }}>
-                  <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity - 1)}>
+                  <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity - 1)} disabled={quantity <= 1 && product.stock_quantity > 0}>
                     <i className="fas fa-minus"></i>
                   </button>
                   <input
                     type="number"
                     className="form-control text-center"
                     value={quantity}
-                    onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 1)}
-                    min="1"
+                    onChange={(e) => handleQuantityChange(parseInt(e.target.value) || 0)} // Pass 0 if input is empty
+                    min="0" // Allow 0 for direct input, then handle in logic
                     style={{ position: 'relative', zIndex: 3 }}
                   />
-                  <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity + 1)}>
+                  <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity + 1)} disabled={quantity >= (product?.stock_quantity || 0)}>
                     <i className="fas fa-plus"></i>
                   </button>
                 </div>
@@ -380,7 +446,7 @@ export const ProductDetailPage: React.FC = () => {
               <button
                 className="btn btn-cps btn-lg"
                 onClick={handleAddToCart}
-                disabled={!product || product.stock_quantity <= 0 || quantity > product.stock_quantity}
+                disabled={!product || product.stock_quantity <= 0 || quantity <= 0 || quantity > product.stock_quantity}
               >
                 <i className="fas fa-shopping-cart me-2"></i>
                 {product && product.stock_quantity <= 0 ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
@@ -405,27 +471,29 @@ export const ProductDetailPage: React.FC = () => {
       <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleCloseRegisterModal} />
 
       {/* Stock Warning Modal */}
-      <div className={`modal fade ${showStockWarning ? 'show' : ''}`} style={{ display: showStockWarning ? 'block' : 'none', zIndex: 1060 }} tabIndex={-1}>
-        <div className="modal-dialog modal-dialog-centered">
-          <div className="modal-content">
-            <div className="modal-header bg-warning">
-              <h5 className="modal-title">
-                <i className="bi bi-exclamation-triangle-fill me-2"></i>
-                Cảnh báo
-              </h5>
-              <button type="button" className="btn-close" onClick={() => setShowStockWarning(false)}></button>
-            </div>
-            <div className="modal-body">
-              <p className="mb-0">{stockWarningMessage}</p>
-            </div>
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowStockWarning(false)}>
-                Đóng
-              </button>
+      {showStockWarning && (
+        <div className="modal fade show" id="stockWarningModal" tabIndex={-1} role="dialog" aria-labelledby="stockWarningModalLabel" aria-hidden="false" style={{ display: 'block', zIndex: 1060 }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-header bg-warning">
+                <h5 className="modal-title" id="stockWarningModalLabel">
+                  <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                  Cảnh báo
+                </h5>
+                <button type="button" className="btn-close" onClick={() => setShowStockWarning(false)}></button>
+              </div>
+              <div className="modal-body">
+                <p className="mb-0">{stockWarningMessage}</p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowStockWarning(false)}>
+                  Đóng
+                </button>
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      )}
       {showStockWarning && <div className="modal-backdrop fade show" style={{ zIndex: 1055 }}></div>}
 
       {/* Toast Notification */}

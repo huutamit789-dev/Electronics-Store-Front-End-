@@ -58,7 +58,7 @@ export const UserHomePage: React.FC = () => {
   const countdown = useCountdown(1);
   const { isLoggedIn, user } = useAuthStore();
   const { logout } = useLogout();
-  const { addItem, getTotalItems } = useCartStore();
+  const { addItem, getTotalItems, clearCart,getCountUniqueItems } = useCartStore(); // Destructure clearCart
   const [role, setRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [featuredIndex, setFeaturedIndex] = useState(0);
@@ -77,7 +77,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   };
 
   // Carousel functions for featured products
-  const featuredItemsPerPage = 4;
+  const featuredItemsPerPage = 10; // Changed from 4 to 10
   const featuredTotalSlides = Math.ceil(allProducts.length / featuredItemsPerPage);
 
   const nextFeaturedSlide = () => {
@@ -217,7 +217,11 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   const handleSwitchToRegister = () => { setShowLoginModal(false); setShowRegisterModal(true); };
   const handleSwitchToLogin = () => { setShowRegisterModal(false); setShowLoginModal(true); };
 
-  const handleLogout = () => { logout(); setRole(null); };
+  const handleLogout = () => { 
+    logout(); 
+    setRole(null); 
+    clearCart(); // Clear cart on logout
+  };
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value);
 
   const filteredProducts = useMemo(() => {
@@ -255,6 +259,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   const handleLoginSuccess = () => {
     handleCloseLoginModal();
     checkLoginStatus();
+    clearCart(); // Clear cart on successful login
     setTimeout(() => {
       const token = localStorage.getItem('access_token');
       if (token) {
@@ -315,9 +320,9 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
           <div className="d-flex align-items-center gap-4 ms-auto text-center">
             <Link to="/cart" className="cursor-pointer text-white text-decoration-none hover-lift">
               <i className="bi bi-cart3 fs-5 position-relative">
-                {getTotalItems() > 0 && (
+                {getCountUniqueItems() > 0 && (
                   <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
-                    {getTotalItems()}
+                    {getCountUniqueItems()}
                   </span>
                 )}
               </i>
@@ -394,7 +399,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
 
     {/* Nút cuộn sang phải */}
     <button 
-      className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-none d-md-flex align-items-center justify-content-center hover-lift"
+      className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border"
       style={{ right: '-15px', width: '36px', height: '36px', padding: 0 }}
       onClick={() => scrollCategories('right')}
     >
