@@ -140,6 +140,36 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     }
   };
 
+  // Nếu có giỏ hàng local khi user đăng nhập, merge vào backend
+  const mergeLocalCartIntoBackend = async (userId: string) => {
+    try {
+      const stored = localStorage.getItem('cartItems');
+      if (!stored) return;
+      const localItems = JSON.parse(stored) as any[];
+      if (!Array.isArray(localItems) || localItems.length === 0) return;
+
+      console.log('Merging local cart into backend for user:', userId, localItems);
+
+      // iterate sequentially to avoid overwhelming backend and to preserve order
+      for (const li of localItems) {
+        const prodId = li.productId || li.product_id || (li._id && li._id.productId) || null;
+        const qty = li.quantity || li.qty || 1;
+        const price = li.price || li.unitPrice || 0;
+        if (!prodId) continue;
+        try {
+          await addToCartContext(userId, prodId, qty, price);
+        } catch (e) {
+          console.warn('Failed to add local item to backend cart', e);
+        }
+      }
+
+      // Clear local storage cart after merging
+      localStorage.removeItem('cartItems');
+    } catch (e) {
+      console.error('Error merging local cart into backend:', e);
+    }
+  };
+
   // Hàm thêm sản phẩm vào giỏ hàng qua API và cập nhật context
   const addToCartContext = async (userId: string, productId: string, quantity: number, price: number): Promise<boolean> => {
     console.log('=== addToCartContext called ===');
@@ -253,7 +283,11 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
     console.log('User:', user);
     if (user?._id) {
       console.log('Fetching cart for user:', user._id);
-      fetchCart(user._id);
+      // First merge any local cart (from non-logged sessions) into backend
+      (async () => {
+        await mergeLocalCartIntoBackend(user._id);
+        await fetchCart(user._id);
+      })();
     } else {
       console.log('No user, clearing cart');
       setCart(null); // Clear cart if no user

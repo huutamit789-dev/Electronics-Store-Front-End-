@@ -38,6 +38,7 @@ export const PaymentManagementPage: React.FC = () => {
   const [paymentsPerPage, setPaymentsPerPage] = useState<number>(10); // Số thanh toán trên mỗi trang
   const [totalPayments, setTotalPayments] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   // States cho Modal
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -96,6 +97,17 @@ export const PaymentManagementPage: React.FC = () => {
     setCurrentPage(pageNumber);
   };
 
+  const filteredPayments = payments.filter((payment) => {
+    const keyword = searchTerm.toLowerCase();
+    return (
+      payment._id?.toLowerCase().includes(keyword) ||
+      payment.order_id?.toLowerCase().includes(keyword) ||
+      payment.user_id?.toLowerCase().includes(keyword) ||
+      payment.payment_method?.toLowerCase().includes(keyword) ||
+      payment.status?.toLowerCase().includes(keyword)
+    );
+  });
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
@@ -126,6 +138,23 @@ export const PaymentManagementPage: React.FC = () => {
           <h6 className="m-0 font-weight-bold text-primary">Danh sách Thanh toán</h6>
         </div>
         <div className="card-body">
+          <div className="row mb-3">
+            <div className="col-md-4 ms-auto">
+              <div className="input-group">
+                <span className="input-group-text"><i className="fas fa-search"></i></span>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Tìm kiếm thanh toán..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
           <div className="table-responsive">
             <table className="table table-bordered" id="dataTable" width="100%" cellSpacing="0">
               <thead>
@@ -141,7 +170,7 @@ export const PaymentManagementPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {payments.map((payment) => (
+                {filteredPayments.map((payment) => (
                   <tr key={payment._id}>
                     <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{payment._id}</span></td>
                     <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{payment.order_id}</span></td>
@@ -167,7 +196,7 @@ export const PaymentManagementPage: React.FC = () => {
           {/* Pagination Controls */}
           <div className="d-flex justify-content-between align-items-center mt-3">
             <div>
-              Hiển thị {payments.length} trên {totalPayments} thanh toán (Trang {currentPage} / {totalPages})
+              Hiển thị {filteredPayments.length} trên {totalPayments} thanh toán (Trang {currentPage} / {totalPages})
             </div>
             <nav>
               <ul className="pagination mb-0">

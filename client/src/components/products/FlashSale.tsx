@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Product } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useCart } from '@/contexts/CartContext';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
 
@@ -17,6 +18,7 @@ export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => 
   const [currentIndex, setCurrentIndex] = useState(0);
   const { addItem } = useCartStore();
   const { isLoggedIn } = useAuthStore();
+  const { addToCartContext, user } = useCart();
 
   const itemsPerPage = 4; // Changed from 4 to 10
   const totalSlides = Math.ceil(products.length / itemsPerPage);
@@ -40,14 +42,18 @@ export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => 
       handleShowLoginModal();
       return;
     }
-    addItem({
-      productId: product._id,
-      productName: product.name,
-      price: product.price,
-      quantity: 1,
-      image_url: product.image_url || '',
-      stock_quantity: product.stock_quantity
-    });
+    if (isLoggedIn && user?._id) {
+      addToCartContext(user._id, product._id, 1, product.price);
+    } else {
+      addItem({
+        productId: product._id,
+        productName: product.name,
+        price: product.price,
+        quantity: 1,
+        image_url: product.image_url || '',
+        stock_quantity: product.stock_quantity
+      });
+    }
   };
 
   // Modal handlers

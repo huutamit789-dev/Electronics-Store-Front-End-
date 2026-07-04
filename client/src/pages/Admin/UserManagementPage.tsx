@@ -34,6 +34,7 @@ export const UserManagementPage: React.FC = () => {
   const [usersPerPage, setUsersPerPage] = useState<number>(10); // Số người dùng trên mỗi trang
   const [totalUsers, setTotalUsers] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   // States cho các Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -126,6 +127,15 @@ export const UserManagementPage: React.FC = () => {
     setCurrentPage(pageNumber);
   };
 
+  const filteredUsers = users.filter((user) => {
+    const keyword = searchTerm.toLowerCase();
+    return (
+      user.username?.toLowerCase().includes(keyword) ||
+      user.email?.toLowerCase().includes(keyword) ||
+      user.role?.toLowerCase().includes(keyword)
+    );
+  });
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
@@ -159,6 +169,23 @@ export const UserManagementPage: React.FC = () => {
           <h6 className="m-0 font-weight-bold text-primary">Danh sách Người dùng</h6>
         </div>
         <div className="card-body">
+          <div className="row mb-3">
+            <div className="col-md-4 ms-auto">
+              <div className="input-group">
+                <span className="input-group-text"><i className="fas fa-search"></i></span>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Tìm kiếm người dùng..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
           <div className="table-responsive">
             <table className="table table-bordered" id="dataTable" width="100%" cellSpacing="0">
               <thead>
@@ -171,7 +198,7 @@ export const UserManagementPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {users.map((user) => (
+                {filteredUsers.map((user) => (
                   <tr key={user._id}>
                     <td hidden><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{user._id}</span></td>
                     <td>{user.username}</td>
@@ -193,7 +220,7 @@ export const UserManagementPage: React.FC = () => {
           {/* Pagination Controls */}
           <div className="d-flex justify-content-between align-items-center mt-3">
             <div>
-              Hiển thị {users.length} trên {totalUsers} người dùng (Trang {currentPage} / {totalPages})
+              Hiển thị {filteredUsers.length} trên {totalUsers} người dùng (Trang {currentPage} / {totalPages})
             </div>
             <nav>
               <ul className="pagination mb-0">

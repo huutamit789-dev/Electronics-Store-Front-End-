@@ -41,14 +41,23 @@ export const HomePage = () => {
         ? await productService.getProductByCategoryId(categoryId, 1, 10)
         : await productService.getAllProducts(1, 10);
 
-      const fetchedProducts = productsResponse.data.products
-        ?? productsResponse.data.categories?.flatMap(category => category.products)
-        ?? [];
+      if (productsResponse?.success === false) {
+        console.warn('Product fetch returned unsuccessful response', productsResponse);
+        setProducts([]);
+      } else {
+        const fetchedProducts = productsResponse.data.products
+          ?? productsResponse.data.categories?.flatMap(category => category.products)
+          ?? [];
 
-      setProducts(fetchedProducts);
-    } catch (err) {
-      setError('Failed to fetch products. Please try again later.');
-      console.error('Error fetching products:', err);
+        setProducts(Array.isArray(fetchedProducts) ? fetchedProducts : []);
+      }
+    } catch (err: any) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        setProducts([]);
+      } else {
+        setError('Failed to fetch products. Please try again later.');
+        console.error('Error fetching products:', err);
+      }
     } finally {
       setLoading(false);
     }

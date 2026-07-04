@@ -1,10 +1,18 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { useCart } from '@/contexts/CartContext';
+import { useAuthStore } from '@/store/useAuthStore';
+import { useCartStore } from '@/store/useCartStore';
 
 export const CartIcon: React.FC = () => {
   const { cart } = useCart();
-  const totalItems = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
+  const { isLoggedIn } = useAuthStore();
+  const { items: localItems } = useCartStore();
+  
+  // Use backend cart count when logged in, otherwise use local store
+  const totalItems = isLoggedIn && cart?.items 
+    ? cart.items.reduce((sum, item) => sum + item.quantity, 0) 
+    : localItems.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <Link to="/cart" className="text-dark position-relative me-3">

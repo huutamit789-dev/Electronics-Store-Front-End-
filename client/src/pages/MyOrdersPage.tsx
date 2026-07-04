@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axiosClient from '@/api/axiosClient';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useCart } from '@/contexts/CartContext';
 import { jwtDecode } from 'jwt-decode';
 import { API_BASE_URL } from '@/config/constants';
 import { LoginModal } from '@/components/auth/LoginModal';
@@ -57,6 +58,7 @@ export const MyOrdersPage: React.FC = () => {
   const categoryScrollRef = useRef<HTMLDivElement>(null);
   const { logout } = useLogout();
   const { getCountUniqueItems } = useCartStore();
+  const { cart } = useCart();
 
   useEffect(() => {
     if (!isLoggedIn || !user) {
@@ -128,6 +130,10 @@ export const MyOrdersPage: React.FC = () => {
   const handleSwitchToLogin = () => { setShowRegisterModal(false); setShowLoginModal(true); };
   const handleLogout = () => { logout(); setRole(null); };
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value);
+
+  const handleLogoClick = () => {
+    setSearchQuery(''); // Clear search when clicking logo
+  };
 
   const handleLoginSuccess = () => {
     handleCloseLoginModal();
@@ -234,7 +240,7 @@ export const MyOrdersPage: React.FC = () => {
       {/* Header (Màu đỏ CellphoneS) */}
       <header className="bg-brand-red text-white sticky-top shadow-sm py-2 z-3">
         <div className="container d-flex align-items-center gap-4">
-          <Link to="/" className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
+          <Link to="/" onClick={handleLogoClick} className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
             <i className="bi bi-phone text-warning" style={{ transform: 'rotate(-15deg)' }}></i> ElectroStore
           </Link>
 
@@ -252,9 +258,13 @@ export const MyOrdersPage: React.FC = () => {
           <div className="d-flex align-items-center gap-4 ms-auto text-center">
             <Link to="/cart" className="cursor-pointer text-white text-decoration-none hover-lift">
               <i className="bi bi-cart3 fs-5 position-relative">
-                {getCountUniqueItems() > 0 && (
+                {(isLoggedIn && cart?.items 
+                  ? cart.items.reduce((sum, item) => sum + item.quantity, 0)
+                  : getCountUniqueItems()) > 0 && (
                   <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
-                    {getCountUniqueItems()}
+                    {isLoggedIn && cart?.items 
+                      ? cart.items.reduce((sum, item) => sum + item.quantity, 0)
+                      : getCountUniqueItems()}
                   </span>
                 )}
               </i>

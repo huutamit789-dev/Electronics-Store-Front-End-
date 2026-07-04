@@ -14,6 +14,11 @@ export const ProductManagementPage: React.FC = () => {
   const [productsPerPage, setProductsPerPage] = useState<number>(10); // Số sản phẩm trên mỗi trang
   const [totalProducts, setTotalProducts] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState<string>('');
+
+  // Hiển thị giá dưới dạng chuỗi để format với dấu phẩy (thousand separators)
+  const [newPriceDisplay, setNewPriceDisplay] = useState<string>('');
+  const [editPriceDisplay, setEditPriceDisplay] = useState<string>('');
 
   // States cho các Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -28,19 +33,45 @@ export const ProductManagementPage: React.FC = () => {
     price: 0,
     stock_quantity: 0,
     image_url: '',
+    images: [],
     cate_id: '',
     __v: 0
   });
-  const [newProduct, setNewProduct] = useState({
+  const [newProduct, setNewProduct] = useState<{
+    name: string;
+    description: string;
+    price: number;
+    stock_quantity: number;
+    image_url: string;
+    images: string[];
+    cate_id: string;
+  }>({
     name: '',
     description: '',
     price: 0,
     stock_quantity: 0,
     image_url: '',
+    images: [],
     cate_id: ''
   });
+
+  // Helper: format và parse currency (hiển thị dấu phẩy, lưu số nguyên)
+  const formatCurrency = (value: number | string) => {
+    if (value === '' || value === null || value === undefined) return '';
+    const num = Number(String(value).replace(/[^0-9.-]/g, '')) || 0;
+    return num.toLocaleString('en-US');
+  };
+
+  const parseCurrency = (str: string) => {
+    if (!str) return 0;
+    const cleaned = String(str).replace(/,/g, '').replace(/^0+(?=\d)/, '');
+    const num = Number(cleaned);
+    return isNaN(num) ? 0 : num;
+  };
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
+  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
+  const [editImageFiles, setEditImageFiles] = useState<File[]>([]);
 // 1. Thêm state để lưu danh mục
   const [categories, setCategories] = useState<any[]>([]);
   // useEffect(() => { // Đã gộp vào useEffect chính
@@ -49,6 +80,8 @@ export const ProductManagementPage: React.FC = () => {
   const response =  axiosClient.get(`${API_BASE_URL}/categories`);
 
   const handleAddProduct = () => {
+    setNewPriceDisplay('');
+    setNewImageFiles([]);
     setIsAddModalOpen(true);
   };
 
@@ -57,6 +90,9 @@ export const ProductManagementPage: React.FC = () => {
     if (product) {
       setCurrentProduct(product);
       setEditImageFile(null);
+      setEditImageFiles([]);
+      // set edit price display
+      setEditPriceDisplay(formatCurrency(product.price || 0));
       setIsEditModalOpen(true);
     }
   };
@@ -123,19 +159,45 @@ export const ProductManagementPage: React.FC = () => {
     }
   };
 
+  // Hàm upload nhiều ảnh
+  const uploadMultipleImages = async (files: File[]): Promise<string[]> => {
+    const uploadPromises = files.map(file => uploadImageAndGetUrl(file));
+    return Promise.all(uploadPromises);
+  };
+
   const handleAdd = async () => {
     try {
-      let productToAdd = { ...newProduct };
-      
+      // parse and validate price and quantity
+      const priceValue = parseCurrency(newPriceDisplay) || newProduct.price;
+      if (priceValue <= 0) {
+        toast.error('Giá sản phẩm phải lớn hơn 0');
+        return;
+      }
+      if ((newProduct.stock_quantity || 0) <= 0) {
+        toast.error('Số lượng tồn kho phải lớn hơn 0');
+        return;
+      }
+
+      let productToAdd = { ...newProduct, price: priceValue };
+
+      // Upload ảnh chính
       if (newImageFile) {
         const imageUrl = await uploadImageAndGetUrl(newImageFile);
         productToAdd = { ...productToAdd, image_url: imageUrl };
       }
-      
+
+      // Upload nhiều ảnh phụ
+      if (newImageFiles.length > 0) {
+        const imageUrls = await uploadMultipleImages(newImageFiles);
+        productToAdd = { ...productToAdd, images: imageUrls };
+      }
+
       await axiosClient.post(`${API_BASE_URL}/products`, productToAdd);
       setIsAddModalOpen(false);
-      setNewProduct({ name: '', description: '', price: 0, stock_quantity: 0, image_url: '', cate_id: '' });
+      setNewProduct({ name: '', description: '', price: 0, stock_quantity: 0, image_url: '', images: [], cate_id: '' });
+      setNewPriceDisplay('');
       setNewImageFile(null);
+      setNewImageFiles([]);
       fetchProducts(currentPage, productsPerPage); // Cập nhật lại danh sách sản phẩm sau khi thêm
       toast.success('Thêm sản phẩm thành công!'); // Thông báo thành công bằng toast
     } catch (err) {
@@ -146,16 +208,36 @@ export const ProductManagementPage: React.FC = () => {
 
   const handleUpdate = async () => {
     try {
-      let productToUpdate = { ...currentProduct };
-      
+      // parse and validate price and quantity
+      const priceValue = parseCurrency(editPriceDisplay) || currentProduct.price;
+      if (priceValue <= 0) {
+        toast.error('Giá sản phẩm phải lớn hơn 0');
+        return;
+      }
+      if ((currentProduct.stock_quantity || 0) <= 0) {
+        toast.error('Số lượng tồn kho phải lớn hơn 0');
+        return;
+      }
+
+      let productToUpdate = { ...currentProduct, price: priceValue };
+
+      // Upload ảnh chính
       if (editImageFile) {
         const imageUrl = await uploadImageAndGetUrl(editImageFile);
         productToUpdate = { ...productToUpdate, image_url: imageUrl };
       }
-      
+
+      // Upload nhiều ảnh phụ
+      if (editImageFiles.length > 0) {
+        const imageUrls = await uploadMultipleImages(editImageFiles);
+        productToUpdate = { ...productToUpdate, images: imageUrls };
+      }
+
       await axiosClient.put(`${API_BASE_URL}/products/${currentProduct._id}`, productToUpdate);
       setIsEditModalOpen(false);
       setEditImageFile(null);
+      setEditImageFiles([]);
+      setEditPriceDisplay('');
       fetchProducts(currentPage, productsPerPage); // Cập nhật lại danh sách sản phẩm sau khi cập nhật
       toast.success('Cập nhật sản phẩm thành công!'); // Thông báo thành công bằng toast
     } catch (err) {
@@ -184,6 +266,15 @@ console.log("pruct filter", products)
   const handlePageChange = (pageNumber: number) => {
     setCurrentPage(pageNumber);
   };
+
+  const filteredProducts = products.filter((product) => {
+    const keyword = searchTerm.toLowerCase();
+    return (
+      product.name?.toLowerCase().includes(keyword) ||
+      product.description?.toLowerCase().includes(keyword) ||
+      (typeof product.cate_id === 'object' ? product.cate_id.name : String(product.cate_id)).toLowerCase().includes(keyword)
+    );
+  });
 
   // const handleLogout = () => { // Đã di chuyển sang AdminDashboardPage
   //   // Xóa token xác thực khỏi localStorage
@@ -223,6 +314,23 @@ console.log("pruct filter", products)
           <h6 className="m-0 font-weight-bold text-primary">Danh sách Sản phẩm</h6>
         </div>
         <div className="card-body">
+          <div className="row mb-3">
+            <div className="col-md-4 ms-auto">
+              <div className="input-group">
+                <span className="input-group-text"><i className="fas fa-search"></i></span>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Tìm kiếm sản phẩm..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
           <div className="table-responsive">
             <table className="table table-bordered" id="dataTable" width="100%" cellSpacing="0">
               <thead>
@@ -237,7 +345,7 @@ console.log("pruct filter", products)
                 </tr>
               </thead>
               <tbody>
-                {products.map((product) => (
+                {filteredProducts.map((product) => (
                   <tr key={product._id}>
                     <td hidden><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{product._id}</span></td>
                     <td>{product.name}</td>
@@ -263,7 +371,7 @@ console.log("pruct filter", products)
           {/* Pagination Controls */}
           <div className="d-flex justify-content-between align-items-center mt-3">
             <div>
-              Hiển thị {products.length} trên {totalProducts} sản phẩm (Trang {currentPage} / {totalPages})
+              Hiển thị {filteredProducts.length} trên {totalProducts} sản phẩm (Trang {currentPage} / {totalPages})
             </div>
             <nav>
               <ul className="pagination mb-0">
@@ -299,12 +407,67 @@ console.log("pruct filter", products)
               <div className="modal-body">
                 <input className="form-control mb-2" placeholder="Tên sản phẩm" value={newProduct.name} onChange={(e) => setNewProduct({...newProduct, name: e.target.value})} />
                 <textarea className="form-control mb-2" placeholder="Mô tả" value={newProduct.description} onChange={(e) => setNewProduct({...newProduct, description: e.target.value})} />
-                <input className="form-control mb-2" type="number" placeholder="Giá" value={newProduct.price} onChange={(e) => setNewProduct({...newProduct, price: Number(e.target.value)})} />
-                <input className="form-control mb-2" type="number" placeholder="Số lượng tồn kho" value={newProduct.stock_quantity} onChange={(e) => setNewProduct({...newProduct, stock_quantity: Number(e.target.value)})} />
+                {/* Thay bằng input dạng text để hiển thị format với dấu phẩy */}
+                <input
+                  className="form-control mb-2"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Giá"
+                  value={newPriceDisplay}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/[^0-9]/g, '');
+                    if (!digits) {
+                      setNewPriceDisplay('');
+                      setNewProduct({ ...newProduct, price: 0 });
+                      return;
+                    }
+                    const parsed = Number(digits);
+                    setNewProduct({ ...newProduct, price: parsed });
+                    setNewPriceDisplay(formatCurrency(parsed));
+                  }}
+                  onBlur={() => setNewPriceDisplay((s) => formatCurrency(parseCurrency(s)))}
+                />
+                <input
+                  className="form-control mb-2"
+                  type="number"
+                  min={0}
+                  placeholder="Số lượng tồn kho"
+                  value={newProduct.stock_quantity}
+                  onChange={(e) => {
+                    const raw = String(e.target.value).replace(/[^0-9]/g, '');
+                    const cleaned = raw.replace(/^0+(?=\d)/, '');
+                    setNewProduct({ ...newProduct, stock_quantity: cleaned === '' ? 0 : Number(cleaned) });
+                  }}
+                />
+                {/* Validate: nếu muốn hiển thị lỗi ngay lập tức có thể thêm message dưới đây */}
                 <div className="mb-2">
-                  <label className="form-label">Hình ảnh</label>
+                  <label className="form-label">Hình ảnh chính</label>
                   <input className="form-control" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) setNewImageFile(file); }} />
                   {newImageFile && <img src={URL.createObjectURL(newImageFile)} alt="Preview" className="img-thumbnail mt-2" style={{ width: '100px', height: '100px', objectFit: 'cover' }} />}
+                </div>
+                <div className="mb-2">
+                  <label className="form-label">Hình ảnh phụ (nhiều ảnh)</label>
+                  <input 
+                    className="form-control" 
+                    type="file" 
+                    accept="image/*" 
+                    multiple 
+                    onChange={(e) => { 
+                      const files = Array.from(e.target.files || []); 
+                      setNewImageFiles(files); 
+                    }} 
+                  />
+                  <div className="mt-2 d-flex gap-2 flex-wrap">
+                    {newImageFiles.map((file, index) => (
+                      <img 
+                        key={index} 
+                        src={URL.createObjectURL(file)} 
+                        alt={`Preview ${index}`} 
+                        className="img-thumbnail" 
+                        style={{ width: '80px', height: '80px', objectFit: 'cover' }} 
+                      />
+                    ))}
+                  </div>
                 </div>
                 <div className="mb-2">
                   <label className="form-label">Danh mục</label>
@@ -315,7 +478,7 @@ console.log("pruct filter", products)
                 </div>
               </div>
               <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => { setIsAddModalOpen(false); setNewImageFile(null); }}>Hủy</button>
+                <button className="btn btn-secondary" onClick={() => { setIsAddModalOpen(false); setNewImageFile(null); setNewImageFiles([]); }}>Hủy</button>
                 <button className="btn btn-primary" onClick={handleAdd}>Thêm</button>
               </div>
             </div></div>
@@ -330,12 +493,78 @@ console.log("pruct filter", products)
               <div className="modal-body">
                 <input className="form-control mb-2" placeholder="Tên sản phẩm" value={currentProduct.name} onChange={(e) => setCurrentProduct({...currentProduct, name: e.target.value})} />
                 <textarea className="form-control mb-2" placeholder="Mô tả" value={currentProduct.description} onChange={(e) => setCurrentProduct({...currentProduct, description: e.target.value})} />
-                <input className="form-control mb-2" type="number" placeholder="Giá" value={currentProduct.price} onChange={(e) => setCurrentProduct({...currentProduct, price: Number(e.target.value)})} />
-                <input className="form-control mb-2" type="number" placeholder="Số lượng tồn kho" value={currentProduct.stock_quantity} onChange={(e) => setCurrentProduct({...currentProduct, stock_quantity: Number(e.target.value)})} />
+                {/* Use formatted input for edit price */}
+                <input
+                  className="form-control mb-2"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="Giá"
+                  value={editPriceDisplay}
+                  onChange={(e) => {
+                    const digits = e.target.value.replace(/[^0-9]/g, '');
+                    if (!digits) {
+                      setEditPriceDisplay('');
+                      setCurrentProduct({ ...currentProduct, price: 0 });
+                      return;
+                    }
+                    const parsed = Number(digits);
+                    setCurrentProduct({ ...currentProduct, price: parsed });
+                    setEditPriceDisplay(formatCurrency(parsed));
+                  }}
+                  onBlur={() => setEditPriceDisplay((s) => formatCurrency(parseCurrency(s)))}
+                />
+                <input
+                  className="form-control mb-2"
+                  type="number"
+                  min={0}
+                  placeholder="Số lượng tồn kho"
+                  value={currentProduct.stock_quantity}
+                  onChange={(e) => {
+                    const raw = String(e.target.value).replace(/[^0-9]/g, '');
+                    const cleaned = raw.replace(/^0+(?=\d)/, '');
+                    setCurrentProduct({ ...currentProduct, stock_quantity: cleaned === '' ? 0 : Number(cleaned) });
+                  }}
+                />
                 <div className="mb-2">
-                  <label className="form-label">Hình ảnh</label>
+                  <label className="form-label">Hình ảnh chính</label>
                   <input className="form-control" type="file" accept="image/*" onChange={(e) => { const file = e.target.files?.[0]; if (file) setEditImageFile(file); }} />
                   {editImageFile ? <img src={URL.createObjectURL(editImageFile)} alt="Preview" className="img-thumbnail mt-2" style={{ width: '100px', height: '100px', objectFit: 'cover' }} /> : currentProduct.image_url && <img src={currentProduct.image_url} alt="Current" className="img-thumbnail mt-2" style={{ width: '100px', height: '100px', objectFit: 'cover' }} />}
+                </div>
+                <div className="mb-2">
+                  <label className="form-label">Hình ảnh phụ (nhiều ảnh)</label>
+                  <input 
+                    className="form-control" 
+                    type="file" 
+                    accept="image/*" 
+                    multiple 
+                    onChange={(e) => { 
+                      const files = Array.from(e.target.files || []); 
+                      setEditImageFiles(files); 
+                    }} 
+                  />
+                  <div className="mt-2 d-flex gap-2 flex-wrap">
+                    {editImageFiles.length > 0 ? (
+                      editImageFiles.map((file, index) => (
+                        <img 
+                          key={index} 
+                          src={URL.createObjectURL(file)} 
+                          alt={`Preview ${index}`} 
+                          className="img-thumbnail" 
+                          style={{ width: '80px', height: '80px', objectFit: 'cover' }} 
+                        />
+                      ))
+                    ) : currentProduct.images && currentProduct.images.length > 0 ? (
+                      currentProduct.images.map((img, index) => (
+                        <img 
+                          key={index} 
+                          src={img} 
+                          alt={`Current ${index}`} 
+                          className="img-thumbnail" 
+                          style={{ width: '80px', height: '80px', objectFit: 'cover' }} 
+                        />
+                      ))
+                    ) : null}
+                  </div>
                 </div>
                 <div className="mb-2">
                   <label className="form-label">Danh mục</label>
@@ -346,7 +575,7 @@ console.log("pruct filter", products)
                 </div>
               </div>
               <div className="modal-footer">
-                <button className="btn btn-secondary" onClick={() => { setIsEditModalOpen(false); setEditImageFile(null); }}>Hủy</button>
+                <button className="btn btn-secondary" onClick={() => { setIsEditModalOpen(false); setEditImageFile(null); setEditImageFiles([]); }}>Hủy</button>
                 <button className="btn btn-primary" onClick={handleUpdate}>Lưu thay đổi</button>
               </div>
             </div></div>

@@ -102,12 +102,19 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ isModal = false, onS
 
   const onSubmit = (data: any) => {
     const { confirmPassword, ...registerData } = data;
+
+    const normalizedData = {
+      ...registerData,
+      username: String(registerData.username || '').trim().toLowerCase(),
+      email: registerData.email ? String(registerData.email).trim().toLowerCase() : undefined,
+      phonenumber: String(registerData.phonenumber || '').trim()
+    };
     
-    if (registerData.email === '') {
-      registerData.email = undefined;
+    if (normalizedData.email === '') {
+      normalizedData.email = undefined;
     }
 
-    register(registerData, {
+    register(normalizedData, {
       onSuccess: () => {
         onRegisterSuccess?.(); // Gọi hàm đóng modal nếu có
       },

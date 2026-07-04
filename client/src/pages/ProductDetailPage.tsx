@@ -4,10 +4,12 @@ import { Product } from '@/types/product';
 import axiosClient from "@/api/axiosClient";
 import { useAuthStore } from '@/store/useAuthStore';
 import { useCartStore } from '@/store/useCartStore';
+import { useCart } from '@/contexts/CartContext';
 import { useLogout } from '@/features/auth/hooks/useAuth';
 import { jwtDecode } from 'jwt-decode';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
+import { CustomerReviews } from '@/components/reviews/CustomerReviews';
 import { API_BASE_URL } from '@/config/constants';
 
 // Định nghĩa kiểu dữ liệu cho Product Detail API Response
@@ -70,10 +72,22 @@ export const ProductDetailPage: React.FC = () => {
   const [showCartToast, setShowCartToast] = useState(false);
   const [showStockWarning, setShowStockWarning] = useState(false);
   const [stockWarningMessage, setStockWarningMessage] = useState('');
+  const [selectedImage, setSelectedImage] = useState<string>('');
+  const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [isZoomed, setIsZoomed] = useState(false);
+  const [zoomPosition, setZoomPosition] = useState({ x: 0, y: 0 });
+  const [showQAForm, setShowQAForm] = useState(false);
+  const [questions, setQuestions] = useState<Array<{ id: number; question: string; answer: string; author: string }>>([
+    { id: 1, question: 'Sản phẩm này có bảo hành chính hãng không?', answer: 'Có, sản phẩm được bảo hành 24 tháng chính hãng tại tất cả cửa hàng.', author: 'Shop' },
+    { id: 2, question: 'Có thể trả góp 0% không?', answer: 'Có, chúng tôi hỗ trợ trả góp 0% lãi suất qua thẻ tín dụng hoặc công ty tài chính.', author: 'Shop' }
+  ]);
+  const [newQuestion, setNewQuestion] = useState('');
+  const [selectedVariant, setSelectedVariant] = useState<number>(0);
 
-  const { isLoggedIn, user } = useAuthStore();
+  const { isLoggedIn } = useAuthStore();
   const { logout } = useLogout();
   const { addItem, getCountUniqueItems } = useCartStore();
+  const { addToCartContext, user, cart } = useCart();
   useEffect(() => {
     // Inject custom styles
     const styleSheet = document.createElement("style");
@@ -91,10 +105,32 @@ export const ProductDetailPage: React.FC = () => {
         setLoading(true);
         // Fetch product details
         const productResponse = await axiosClient.get<ProductDetailApiResponse>(`${API_BASE_URL}/products/${id}`);
-        setProduct(productResponse.data.data);
+        const productData = productResponse.data.data;
+        setProduct(productData);
+        // Set selected image to main image or first image from array
+        setSelectedImage(productData.images && productData.images.length > 0 ? productData.images[0] : productData.image_url);
+        
         // Fetch categories
         const categoriesResponse = await axiosClient.get<CategoryApiResponse>(`${API_BASE_URL}/categories`);
         setCategories(categoriesResponse.data.data.categories);
+
+        // Fetch related products (same category)
+        if (productData.cate_id) {
+          try {
+            const categoryId = typeof productData.cate_id === 'object' ? productData.cate_id._id : productData.cate_id;
+            const relatedResponse = await axiosClient.get(`${API_BASE_URL}/products/getProductByCategoryId/${categoryId}?page=1&limit=10`);
+            if (relatedResponse.data?.data?.products) {
+              // Filter out current product and limit to 8 products
+              const related = relatedResponse.data.data.products
+                .filter((p: Product) => p._id !== id)
+                .slice(0, 8);
+              setRelatedProducts(related);
+            }
+          } catch (err) {
+            console.error('Error fetching related products:', err);
+            // Không hiển thị lỗi cho user, chỉ log để debug
+          }
+        }
 
 
       } catch (err) {
@@ -121,26 +157,35 @@ export const ProductDetailPage: React.FC = () => {
   }, [showStockWarning, stockWarningMessage]);
 
 
-  const handleAddToCart = () => {
+  const handleAddToCart = async () => {
     if (!product) return;
     if (!isLoggedIn) {
       handleShowLoginModal();
       return;
     }
 
+    // Get current variant or base product
+    const currentVariant = product.variants && product.variants.length > 0 && selectedVariant >= 0 
+      ? product.variants[selectedVariant] 
+      : null;
+    const currentPrice = currentVariant?.price || product.price;
+    const currentStock = currentVariant?.stock_quantity || product.stock_quantity;
+    const currentImage = currentVariant?.image_url || product.image_url;
+    const variantName = currentVariant?.name || '';
+
     // 1. Tính toán số lượng đã có trong giỏ hàng trước đó
     const currentQtyInCart = useCartStore.getState().getItemQuantity(product._id);
     const totalRequested = currentQtyInCart + quantity;
 
     // 2. Validate tồn kho thực tế (Tồn kho tại DB - Số lượng đã có trong giỏ)
-    if (product.stock_quantity <= 0) {
+    if (currentStock <= 0) {
       setStockWarningMessage('Sản phẩm đã hết hàng.');
       setShowStockWarning(true);
       return;
     }
 
-    if (totalRequested > product.stock_quantity) {
-      const remaining = product.stock_quantity - currentQtyInCart;
+    if (totalRequested > currentStock) {
+      const remaining = currentStock - currentQtyInCart;
       const msg = remaining > 0
           ? `Bạn đã có ${currentQtyInCart} cái trong giỏ. Chỉ có thể thêm tối đa ${remaining} cái nữa.`
           : `Sản phẩm này đã đạt giới hạn tồn kho trong giỏ hàng của bạn.`;
@@ -151,17 +196,21 @@ export const ProductDetailPage: React.FC = () => {
     }
 
     // 3. Thực hiện thêm vào giỏ
-    const cartItem = {
-      productId: product._id,
-      productName: product.name,
-      price: product.price,
-      quantity: quantity,
-      image_url: product.image_url,
-      stock_quantity: product.stock_quantity
-    };
-
-    addItem(cartItem);
-    setShowCartToast(true);
+    if (isLoggedIn && user?._id) {
+      const ok = await addToCartContext(user._id, product._id, quantity, currentPrice);
+      if (ok) setShowCartToast(true);
+    } else {
+      const cartItem = {
+        productId: product._id,
+        productName: product.name + (variantName ? ` (${variantName})` : ''),
+        price: currentPrice,
+        quantity: quantity,
+        image_url: currentImage,
+        stock_quantity: currentStock
+      };
+      addItem(cartItem);
+      setShowCartToast(true);
+    }
     setQuantity(1);
 
     setTimeout(() => setShowCartToast(false), 2000);
@@ -183,8 +232,17 @@ export const ProductDetailPage: React.FC = () => {
       return;
     }
 
+    // Get current variant or base product
+    const currentVariant = product.variants && product.variants.length > 0 && selectedVariant >= 0 
+      ? product.variants[selectedVariant] 
+      : null;
+    const currentPrice = currentVariant?.price || product.price;
+    const currentStock = currentVariant?.stock_quantity || product.stock_quantity;
+    const currentImage = currentVariant?.image_url || product.image_url;
+    const variantName = currentVariant?.name || '';
+
     // Re-validate quantity right before buying now
-    if (product.stock_quantity <= 0) {
+    if (currentStock <= 0) {
       console.log('ProductDetailPage: handleBuyNow: Stock is 0 or less. Showing warning.');
       const msg = 'Sản phẩm này đã hết hàng.';
       setStockWarningMessage(msg);
@@ -202,9 +260,9 @@ export const ProductDetailPage: React.FC = () => {
       return;
     }
 
-    if (quantity > product.stock_quantity) {
+    if (quantity > currentStock) {
       console.log('ProductDetailPage: handleBuyNow: Quantity exceeds stock. Showing warning.');
-      const msg = `Số lượng bạn chọn (${quantity}) vượt quá số lượng tồn kho (${product.stock_quantity}).`;
+      const msg = `Số lượng bạn chọn (${quantity}) vượt quá số lượng tồn kho (${currentStock}).`;
       setStockWarningMessage(msg);
       setShowStockWarning(true);
       alert(msg); // Temporary alert for debugging
@@ -215,11 +273,11 @@ export const ProductDetailPage: React.FC = () => {
     alert(`Mua ngay: ${quantity} sản phẩm.`); // Temporary alert before adding
     const cartItem = {
       productId: product._id,
-      productName: product.name,
-      price: product.price,
+      productName: product.name + (variantName ? ` (${variantName})` : ''),
+      price: currentPrice,
       quantity: quantity,
-      image_url: product.image_url,
-      stock_quantity: product.stock_quantity
+      image_url: currentImage,
+      stock_quantity: currentStock
     };
 
     addItem(cartItem);
@@ -233,7 +291,11 @@ export const ProductDetailPage: React.FC = () => {
       return;
     }
 
-    const maxQuantity = product.stock_quantity || 0;
+    // Get current variant or base product
+    const currentVariant = product.variants && product.variants.length > 0 && selectedVariant >= 0 
+      ? product.variants[selectedVariant] 
+      : null;
+    const maxQuantity = currentVariant?.stock_quantity || product.stock_quantity || 0;
     console.log('ProductDetailPage: handleQuantityChange: Max stock:', maxQuantity);
 
     let updatedQuantity = newQuantity;
@@ -279,6 +341,34 @@ export const ProductDetailPage: React.FC = () => {
     setSearchQuery(e.target.value);
   };
 
+  const handleLogoClick = () => {
+    setSearchQuery(''); // Clear search when clicking logo
+  };
+
+  const handleImageMouseMove = (e: React.MouseEvent<HTMLImageElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    setZoomPosition({ x, y });
+  };
+
+  const handleImageMouseEnter = () => setIsZoomed(true);
+  const handleImageMouseLeave = () => setIsZoomed(false);
+
+  const handleQuestionSubmit = () => {
+    if (newQuestion.trim()) {
+      const newQA = {
+        id: questions.length + 1,
+        question: newQuestion,
+        answer: 'Shop sẽ trả lời câu hỏi của bạn sớm nhất.',
+        author: user?.username || 'Khách hàng'
+      };
+      setQuestions([...questions, newQA]);
+      setNewQuestion('');
+      setShowQAForm(false);
+    }
+  };
+
   // Tìm tên danh mục dựa trên cate_id của sản phẩm
   // Sử dụng optional chaining an toàn hơn
   const categoryName = product ? categories.find(cat => cat._id === product.cate_id)?.name : 'Danh mục';
@@ -321,7 +411,7 @@ export const ProductDetailPage: React.FC = () => {
       {/* Header (Màu đỏ CellphoneS) */}
       <header className="bg-brand-red text-white sticky-top shadow-sm py-2 z-3">
         <div className="container d-flex align-items-center gap-4">
-          <Link to="/" className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
+          <Link to="/" onClick={handleLogoClick} className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
             <i className="bi bi-phone text-warning" style={{ transform: 'rotate(-15deg)' }}></i> ElectroStore
           </Link>
 
@@ -339,9 +429,13 @@ export const ProductDetailPage: React.FC = () => {
           <div className="d-flex align-items-center gap-4 ms-auto text-center">
             <Link to="/cart" className="cursor-pointer text-white text-decoration-none hover-lift">
               <i className="bi bi-cart3 fs-5 position-relative">
-                {getCountUniqueItems() > 0 && (
+                {(isLoggedIn && cart?.items 
+                  ? cart.items.reduce((sum, item) => sum + item.quantity, 0)
+                  : getCountUniqueItems()) > 0 && (
                   <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
-                    {getCountUniqueItems()}
+                    {isLoggedIn && cart?.items 
+                      ? cart.items.reduce((sum, item) => sum + item.quantity, 0)
+                      : getCountUniqueItems()}
                   </span>
                 )}
               </i>
@@ -380,13 +474,135 @@ export const ProductDetailPage: React.FC = () => {
         <div className="row g-4">
           {/* Left Column */}
           <div className="col-md-7">
-            <div className="card p-3 border-0 shadow-sm rounded-4">
-              <img src={product.image_url} className="img-fluid rounded-3" alt={product.name} />
+            <div 
+              className="card p-3 border-0 shadow-sm rounded-4 position-relative overflow-hidden"
+              onMouseLeave={handleImageMouseLeave}
+            >
+              <img 
+                src={selectedImage || product.image_url} 
+                className="img-fluid rounded-3"
+                alt={product.name} 
+                style={{ 
+                  maxHeight: '500px', 
+                  objectFit: 'contain',
+                  transform: isZoomed ? 'scale(2)' : 'scale(1)',
+                  transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                  transition: 'transform 0.3s ease',
+                  cursor: isZoomed ? 'zoom-out' : 'zoom-in'
+                }}
+                onMouseMove={handleImageMouseMove}
+                onMouseEnter={handleImageMouseEnter}
+              />
+              {isZoomed && (
+                <div className="position-absolute bottom-0 start-0 bg-dark bg-opacity-75 text-white px-2 py-1 rounded-top-end small">
+                  Di chuột để zoom
+                </div>
+              )}
             </div>
+            
+            {/* Image Gallery */}
+            {(product.images && product.images.length > 0) && (
+              <div className="mt-3 card p-3 border-0 shadow-sm rounded-4">
+                <div className="d-flex gap-2 overflow-auto">
+                  <img 
+                    src={product.image_url} 
+                    className={`rounded-3 cursor-pointer ${selectedImage === product.image_url ? 'border-3 border-danger' : ''}`} 
+                    style={{ width: '80px', height: '80px', objectFit: 'cover', border: selectedImage === product.image_url ? '3px solid #d70018' : '1px solid #dee2e6' }}
+                    alt="Main image"
+                    onClick={() => setSelectedImage(product.image_url)}
+                  />
+                  {product.images.map((img, index) => (
+                    <img 
+                      key={index}
+                      src={img} 
+                      className={`rounded-3 cursor-pointer ${selectedImage === img ? 'border-3 border-danger' : ''}`} 
+                      style={{ width: '80px', height: '80px', objectFit: 'cover', border: selectedImage === img ? '3px solid #d70018' : '1px solid #dee2e6' }}
+                      alt={`Product image ${index + 1}`}
+                      onClick={() => setSelectedImage(img)}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div className="mt-4 card p-3 border-0 shadow-sm rounded-4">
               <h5 className="fw-bold">Mô tả sản phẩm</h5>
               <p className="text-muted">{product.description}</p>
-              {/* Có thể thêm các tính năng nổi bật khác nếu có trong product object */}
+              
+              {/* Thông số kỹ thuật */}
+              {product.specs && (
+                <div className="mt-4">
+                  <h6 className="fw-bold mb-3">Thông số kỹ thuật</h6>
+                  <div className="table-responsive">
+                    <table className="table table-bordered">
+                      <tbody>
+                        {product.specs.screen && (
+                          <tr>
+                            <td className="fw-bold" style={{ width: '40%' }}>Màn hình</td>
+                            <td>{product.specs.screen}</td>
+                          </tr>
+                        )}
+                        {product.specs.camera && (
+                          <tr>
+                            <td className="fw-bold">Camera</td>
+                            <td>{product.specs.camera}</td>
+                          </tr>
+                        )}
+                        {product.specs.processor && (
+                          <tr>
+                            <td className="fw-bold">Chip xử lý</td>
+                            <td>{product.specs.processor}</td>
+                          </tr>
+                        )}
+                        {product.specs.memory && (
+                          <tr>
+                            <td className="fw-bold">RAM</td>
+                            <td>{product.specs.memory}</td>
+                          </tr>
+                        )}
+                        {product.specs.storage && (
+                          <tr>
+                            <td className="fw-bold">Bộ nhớ trong</td>
+                            <td>{product.specs.storage}</td>
+                          </tr>
+                        )}
+                        {product.specs.battery && (
+                          <tr>
+                            <td className="fw-bold">Pin</td>
+                            <td>{product.specs.battery}</td>
+                          </tr>
+                        )}
+                        {product.specs.os && (
+                          <tr>
+                            <td className="fw-bold">Hệ điều hành</td>
+                            <td>{product.specs.os}</td>
+                          </tr>
+                        )}
+                        {product.specs.weight && (
+                          <tr>
+                            <td className="fw-bold">Trọng lượng</td>
+                            <td>{product.specs.weight}</td>
+                          </tr>
+                        )}
+                        {product.specs.dimensions && (
+                          <tr>
+                            <td className="fw-bold">Kích thước</td>
+                            <td>{product.specs.dimensions}</td>
+                          </tr>
+                        )}
+                        {product.specs.other && product.specs.other.length > 0 && (
+                          product.specs.other.map((spec, index) => (
+                            <tr key={index}>
+                              <td className="fw-bold">Thông số khác {index + 1}</td>
+                              <td>{spec}</td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 
@@ -397,13 +613,26 @@ export const ProductDetailPage: React.FC = () => {
             {/* Price Section */}
             <div className="card p-3 my-3 card-border">
               <div className="d-flex align-items-center gap-2">
-                <span className="price-current">{product.price.toLocaleString()}₫</span>
+                <span className="price-current">
+                  {product.variants && product.variants.length > 0 && selectedVariant >= 0
+                    ? product.variants[selectedVariant].price.toLocaleString()
+                    : product.price.toLocaleString()}₫
+                </span>
                 {/* Giả định có original_price để hiển thị giá cũ */}
                 {/* <span className="price-old">31.990.000₫</span> */}
               </div>
               <div className="mt-2">
-                <span className={`badge ${product.stock_quantity > 0 ? 'bg-success' : 'bg-danger'}`}>
-                  {product.stock_quantity > 0 ? `Còn ${product.stock_quantity} cái` : 'Hết hàng'}
+                <span className={`badge ${
+                  product.variants && product.variants.length > 0 && selectedVariant >= 0
+                    ? (product.variants[selectedVariant].stock_quantity > 0 ? 'bg-success' : 'bg-danger')
+                    : (product.stock_quantity > 0 ? 'bg-success' : 'bg-danger')
+                }`}>
+                  {product.variants && product.variants.length > 0 && selectedVariant >= 0
+                    ? (product.variants[selectedVariant].stock_quantity > 0 
+                        ? `Còn ${product.variants[selectedVariant].stock_quantity} cái` 
+                        : 'Hết hàng')
+                    : (product.stock_quantity > 0 ? `Còn ${product.stock_quantity} cái` : 'Hết hàng')
+                  }
                 </span>
               </div>
             </div>
@@ -418,12 +647,60 @@ export const ProductDetailPage: React.FC = () => {
               </ul>
             </div>
 
+            {/* Variant Selection */}
+            {product.variants && product.variants.length > 0 && (
+              <div className="card p-3 card-border mt-3">
+                <h6 className="fw-bold mb-3">Chọn phiên bản</h6>
+                <div className="d-flex flex-wrap gap-2">
+                  {product.variants.map((variant, index) => (
+                    <button
+                      key={index}
+                      className={`btn btn-sm rounded-3 ${selectedVariant === index ? 'btn-danger' : 'btn-outline-secondary'}`}
+                      onClick={() => setSelectedVariant(index)}
+                      disabled={variant.stock_quantity <= 0}
+                    >
+                      {variant.name}
+                      {variant.stock_quantity <= 0 && ' (Hết hàng)'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Policy Section */}
+            <div className="card p-3 card-border mt-3">
+              <h6 className="fw-bold text-primary">📋 Chính sách & Hỗ trợ</h6>
+              <div className="mt-2 small">
+                <div className="mb-2">
+                  <strong className="text-success">✓ Đổi trả:</strong> 7 ngày, điều kiện sản phẩm nguyên vẹn
+                </div>
+                <div className="mb-2">
+                  <strong className="text-success">✓ Bảo hành:</strong> 24 tháng chính hãng
+                </div>
+                <div className="mb-2">
+                  <strong className="text-success">✓ Vận chuyển:</strong> Miễn phí đơn từ 2 triệu, 2-4 ngày
+                </div>
+                <div>
+                  <strong className="text-success">✓ Hỗ trợ:</strong> 1900 xxxx (8:00 - 22:00)
+                </div>
+              </div>
+            </div>
+
             {/* Quantity Selector */}
             <div className="card p-3 card-border mt-3" style={{ position: 'relative', zIndex: 1 }}>
               <h6 className="fw-bold mb-3">Số lượng</h6>
               <div className="d-flex align-items-center gap-3">
                 <div className="input-group" style={{ maxWidth: '150px', position: 'relative', zIndex: 2 }}>
-                  <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity - 1)} disabled={quantity <= 1 && product.stock_quantity > 0}>
+                  <button 
+                    className="btn btn-outline-secondary" 
+                    type="button" 
+                    onClick={() => handleQuantityChange(quantity - 1)} 
+                    disabled={quantity <= 1 && (
+                      product.variants && product.variants.length > 0 && selectedVariant >= 0
+                        ? product.variants[selectedVariant].stock_quantity > 0
+                        : product.stock_quantity > 0
+                    )}
+                  >
                     <i className="fas fa-minus"></i>
                   </button>
                   <input
@@ -434,7 +711,16 @@ export const ProductDetailPage: React.FC = () => {
                     min="0" // Allow 0 for direct input, then handle in logic
                     style={{ position: 'relative', zIndex: 3 }}
                   />
-                  <button className="btn btn-outline-secondary" type="button" onClick={() => handleQuantityChange(quantity + 1)} disabled={quantity >= (product?.stock_quantity || 0)}>
+                  <button 
+                    className="btn btn-outline-secondary" 
+                    type="button" 
+                    onClick={() => handleQuantityChange(quantity + 1)} 
+                    disabled={quantity >= (
+                      product.variants && product.variants.length > 0 && selectedVariant >= 0
+                        ? product.variants[selectedVariant].stock_quantity
+                        : (product?.stock_quantity || 0)
+                    )}
+                  >
                     <i className="fas fa-plus"></i>
                   </button>
                 </div>
@@ -446,15 +732,150 @@ export const ProductDetailPage: React.FC = () => {
               <button
                 className="btn btn-cps btn-lg"
                 onClick={handleAddToCart}
-                disabled={!product || product.stock_quantity <= 0 || quantity <= 0 || quantity > product.stock_quantity}
+                disabled={!product || (
+                  product.variants && product.variants.length > 0 && selectedVariant >= 0
+                    ? product.variants[selectedVariant].stock_quantity <= 0
+                    : product.stock_quantity <= 0
+                ) || quantity <= 0 || quantity > (
+                  product.variants && product.variants.length > 0 && selectedVariant >= 0
+                    ? product.variants[selectedVariant].stock_quantity
+                    : product.stock_quantity
+                )}
               >
                 <i className="fas fa-shopping-cart me-2"></i>
-                {product && product.stock_quantity <= 0 ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
+                {!product || (
+                  product.variants && product.variants.length > 0 && selectedVariant >= 0
+                    ? product.variants[selectedVariant].stock_quantity <= 0
+                    : product.stock_quantity <= 0
+                ) ? 'Hết hàng' : 'Thêm vào giỏ hàng'}
               </button>
-
+              <button
+                className="btn btn-outline-danger btn-lg"
+                onClick={handleBuyNow}
+                disabled={!product || (
+                  product.variants && product.variants.length > 0 && selectedVariant >= 0
+                    ? product.variants[selectedVariant].stock_quantity <= 0
+                    : product.stock_quantity <= 0
+                ) || quantity <= 0 || quantity > (
+                  product.variants && product.variants.length > 0 && selectedVariant >= 0
+                    ? product.variants[selectedVariant].stock_quantity
+                    : product.stock_quantity
+                )}
+              >
+                <i className="fas fa-bolt me-2"></i>
+                {!product || (
+                  product.variants && product.variants.length > 0 && selectedVariant >= 0
+                    ? product.variants[selectedVariant].stock_quantity <= 0
+                    : product.stock_quantity <= 0
+                ) ? 'Hết hàng' : 'Mua ngay'}
+              </button>
             </div>
           </div>
         </div>
+
+        {/* Related Products Carousel */}
+        {relatedProducts.length > 0 && (
+          <section className="mt-5">
+            <h3 className="fw-bold mb-4">Sản phẩm liên quan</h3>
+            <div className="position-relative">
+              <div className="row row-cols-2 row-cols-md-4 g-4">
+                {relatedProducts.map(relatedProduct => (
+                  <div className="col" key={relatedProduct._id}>
+                    <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column bg-white">
+                      <Link to={`/product/${relatedProduct._id}`} className="text-decoration-none text-dark flex-grow-1">
+                        <img 
+                          src={relatedProduct.image_url} 
+                          className="card-img-top rounded-3 object-fit-contain mb-3" 
+                          height="180" 
+                          alt={relatedProduct.name} 
+                        />
+                        <h6 className="fw-semibold text-truncate">{relatedProduct.name}</h6>
+                        <div className="text-brand-red fw-bold fs-5 mb-3">{relatedProduct.price.toLocaleString()}đ</div>
+                      </Link>
+                      <button 
+                        className="btn btn-light border w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red transition" 
+                        onClick={(e) => { e.preventDefault(); }}
+                      >
+                        Xem chi tiết
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* Customer Reviews */}
+        <CustomerReviews />
+
+        {/* Q&A Section */}
+        <section className="mt-5">
+          <h3 className="fw-bold mb-4">Câu hỏi & Trả lời</h3>
+          <div className="card p-4 border-0 shadow-sm rounded-4">
+            {!showQAForm ? (
+              <button 
+                className="btn btn-outline-danger w-100 mb-4" 
+                onClick={() => setShowQAForm(true)}
+              >
+                <i className="bi bi-question-circle me-2"></i>
+                Đặt câu hỏi cho sản phẩm này
+              </button>
+            ) : (
+              <div className="mb-4">
+                <textarea
+                  className="form-control rounded-3 mb-3"
+                  value={newQuestion}
+                  onChange={(e) => setNewQuestion(e.target.value)}
+                  placeholder="Nhập câu hỏi của bạn..."
+                  rows={3}
+                />
+                <div className="d-flex gap-2">
+                  <button 
+                    className="btn btn-danger flex-grow-1" 
+                    onClick={handleQuestionSubmit}
+                  >
+                    Gửi câu hỏi
+                  </button>
+                  <button 
+                    className="btn btn-secondary" 
+                    onClick={() => { setShowQAForm(false); setNewQuestion(''); }}
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </div>
+            )}
+
+            <div className="mt-4">
+              {questions.map((qa) => (
+                <div key={qa.id} className="border-bottom pb-3 mb-3">
+                  <div className="d-flex align-items-start gap-2 mb-2">
+                    <div className="bg-primary text-white rounded-circle p-2" style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
+                      <i className="bi bi-person"></i>
+                    </div>
+                    <div className="flex-grow-1">
+                      <div className="fw-bold small">{qa.author}</div>
+                      <div className="text-muted small">Hỏi:</div>
+                      <div className="mt-1">{qa.question}</div>
+                    </div>
+                  </div>
+                  {qa.answer && (
+                    <div className="d-flex align-items-start gap-2 ms-4">
+                      <div className="bg-success text-white rounded-circle p-2" style={{ width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px' }}>
+                        <i className="bi bi-shop"></i>
+                      </div>
+                      <div className="flex-grow-1">
+                        <div className="fw-bold small text-success">Shop trả lời:</div>
+                        <div className="mt-1">{qa.answer}</div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Sticky Action Bar for Mobile */}

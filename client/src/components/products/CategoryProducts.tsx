@@ -4,6 +4,7 @@ import { Product } from '@/types/product';
 import { productService } from '@/features/products/services/productService';
 import { useCartStore } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useCart } from '@/contexts/CartContext';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
 import '@/index.css';
@@ -27,6 +28,7 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({ categoryId, 
   const [showCartToast, setShowCartToast] = useState(false);
   const { addItem } = useCartStore();
   const { isLoggedIn } = useAuthStore();
+  const { addToCartContext, user } = useCart();
 
   // Pagination states
   const [currentPage, setCurrentPage] = useState(1);
@@ -72,13 +74,18 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({ categoryId, 
       handleShowLoginModal();
       return;
     }
-    addItem({
-      productId: product._id,
-      productName: product.name,
-      price: product.price,
-      quantity: 1,
-      image_url: product.image_url || '',
-    });
+    if (isLoggedIn && user?._id) {
+      addToCartContext(user._id, product._id, 1, product.price).then(ok => { if (ok) setShowCartToast(true); });
+    } else {
+      addItem({
+        productId: product._id,
+        productName: product.name,
+        price: product.price,
+        quantity: 1,
+        image_url: product.image_url || '',
+      });
+      setShowCartToast(true);
+    }
     setShowCartToast(true);
 
     // Auto close toast after 2 seconds

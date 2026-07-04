@@ -31,8 +31,13 @@ export const LoginModal: React.FC<LoginModalProps> = ({ show, onClose, onSwitchT
   const [isLoading, setIsLoading] = useState(false);
 
   const onSubmit = (data: any) => {
+    const normalizedData = {
+      ...data,
+      username: String(data.username || '').trim().toLowerCase()
+    };
+
     setIsLoading(true);
-    login(data, {
+    login(normalizedData, {
       onSuccess: async () => {
         setIsLoading(false);
         onLoginSuccess?.();

@@ -30,6 +30,7 @@ export const CategoryManagementPage: React.FC = () => {
   const [categoriesPerPage, setCategoriesPerPage] = useState<number>(10); // Số danh mục trên mỗi trang
   const [totalCategories, setTotalCategories] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   // States cho các Modal
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -112,6 +113,11 @@ export const CategoryManagementPage: React.FC = () => {
     setCurrentPage(pageNumber);
   };
 
+  const filteredCategories = categories.filter((cat) => {
+    const keyword = searchTerm.toLowerCase();
+    return cat.name?.toLowerCase().includes(keyword) || cat.description?.toLowerCase().includes(keyword);
+  });
+
   if (loading) return <div className="text-center mt-5">Đang tải dữ liệu...</div>;
 
   return (
@@ -124,6 +130,23 @@ export const CategoryManagementPage: React.FC = () => {
 
         <div className="card shadow mb-4">
           <div className="card-body">
+            <div className="row mb-3">
+              <div className="col-md-4 ms-auto">
+                <div className="input-group">
+                  <span className="input-group-text"><i className="fas fa-search"></i></span>
+                  <input
+                    type="text"
+                    className="form-control"
+                    placeholder="Tìm kiếm danh mục..."
+                    value={searchTerm}
+                    onChange={(e) => {
+                      setSearchTerm(e.target.value);
+                      setCurrentPage(1);
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
             <div className="table-responsive">
               <table className="table table-bordered">
                 <thead>
@@ -134,7 +157,7 @@ export const CategoryManagementPage: React.FC = () => {
                 </tr>
                 </thead>
                 <tbody>
-                {categories.map((cat) => (
+                {filteredCategories.map((cat) => (
                     <tr key={cat._id}>
                       <td>{cat.name}</td>
                       <td>{cat.description}</td>
@@ -154,7 +177,7 @@ export const CategoryManagementPage: React.FC = () => {
             {/* Pagination Controls */}
             <div className="d-flex justify-content-between align-items-center mt-3">
               <div>
-                Hiển thị {categories.length} trên {totalCategories} danh mục (Trang {currentPage} / {totalPages})
+                Hiển thị {filteredCategories.length} trên {totalCategories} danh mục (Trang {currentPage} / {totalPages})
               </div>
               <nav>
                 <ul className="pagination mb-0">

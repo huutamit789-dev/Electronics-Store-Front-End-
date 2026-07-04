@@ -47,6 +47,7 @@ export const OrderManagementPage: React.FC = () => {
   const [ordersPerPage, setOrdersPerPage] = useState<number>(10); // Số đơn hàng trên mỗi trang
   const [totalOrders, setTotalOrders] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
+  const [searchTerm, setSearchTerm] = useState<string>('');
 
   // States cho các Modal
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
@@ -162,6 +163,16 @@ export const OrderManagementPage: React.FC = () => {
     setCurrentPage(pageNumber);
   };
 
+  const filteredOrders = orders.filter((order) => {
+    const keyword = searchTerm.toLowerCase();
+    const userName = typeof order.user_id === 'object' ? order.user_id.username : String(order.user_id);
+    return (
+      order._id?.toLowerCase().includes(keyword) ||
+      userName.toLowerCase().includes(keyword) ||
+      order.status?.toLowerCase().includes(keyword)
+    );
+  });
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center" style={{ height: '200px' }}>
@@ -192,6 +203,23 @@ export const OrderManagementPage: React.FC = () => {
           <h6 className="m-0 font-weight-bold text-primary">Danh sách Đơn hàng</h6>
         </div>
         <div className="card-body">
+          <div className="row mb-3">
+            <div className="col-md-4 ms-auto">
+              <div className="input-group">
+                <span className="input-group-text"><i className="fas fa-search"></i></span>
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Tìm kiếm đơn hàng..."
+                  value={searchTerm}
+                  onChange={(e) => {
+                    setSearchTerm(e.target.value);
+                    setCurrentPage(1);
+                  }}
+                />
+              </div>
+            </div>
+          </div>
           <div className="table-responsive">
             <table className="table table-bordered" id="dataTable" width="100%" cellSpacing="0">
               <thead>
@@ -205,7 +233,7 @@ export const OrderManagementPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {orders.map((order) => (
+                {filteredOrders.map((order) => (
                   <tr key={order._id}>
                     <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{order._id}</span></td>
                     <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>
@@ -237,7 +265,7 @@ export const OrderManagementPage: React.FC = () => {
           {/* Pagination Controls */}
           <div className="d-flex justify-content-between align-items-center mt-3">
             <div>
-              Hiển thị {orders.length} trên {totalOrders} đơn hàng (Trang {currentPage} / {totalPages})
+              Hiển thị {filteredOrders.length} trên {totalOrders} đơn hàng (Trang {currentPage} / {totalPages})
             </div>
             <nav>
               <ul className="pagination mb-0">

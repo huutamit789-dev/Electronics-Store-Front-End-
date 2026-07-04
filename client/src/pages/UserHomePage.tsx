@@ -16,6 +16,7 @@ import { footerService, Footer } from '@/features/footers/services/footerService
 import { useAuthStore } from '@/store/useAuthStore';
 import { useLogout } from '@/features/auth/hooks/useAuth';
 import { useCartStore } from '@/store/useCartStore';
+import { useCart } from '@/contexts/CartContext';
 import { CartItem } from '@/types/order';
 import '@/assets/UserHomePage.css';
 // Import local images
@@ -58,7 +59,8 @@ export const UserHomePage: React.FC = () => {
   const countdown = useCountdown(1);
   const { isLoggedIn, user } = useAuthStore();
   const { logout } = useLogout();
-  const { addItem, getTotalItems, clearCart,getCountUniqueItems } = useCartStore(); // Destructure clearCart
+  const { addItem, getTotalItems, clearCart, getCountUniqueItems } = useCartStore(); // Destructure clearCart
+  const { addToCartContext, user: cartUser, cart } = useCart();
   const [role, setRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [featuredIndex, setFeaturedIndex] = useState(0);
@@ -100,20 +102,29 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
         ? await productService.getProductByCategoryId(categoryId, 1, 10)
         : await productService.getAllProducts(1, 10);
 
-      const fetchedProducts = productsResponse.data.products
-        ?? productsResponse.data.categories?.flatMap(category => category.products)
-        ?? [];
+      if (productsResponse?.success === false) {
+        console.warn('Product fetch returned unsuccessful response', productsResponse);
+        setProducts([]);
+      } else {
+        const fetchedProducts = productsResponse.data.products
+          ?? productsResponse.data.categories?.flatMap(category => category.products)
+          ?? [];
 
-      const productsWithLocalImages = fetchedProducts.map((product, index) => ({
-        ...product,
-        image_url: (product.image_url && !product.image_url.includes('placeholder'))
-                     ? product.image_url
-                     : localImages[index % localImages.length]
-      }));
+        const productsWithLocalImages = (Array.isArray(fetchedProducts) ? fetchedProducts : []).map((product, index) => ({
+          ...product,
+          image_url: (product.image_url && !product.image_url.includes('placeholder'))
+                       ? product.image_url
+                       : localImages[index % localImages.length]
+        }));
 
-      setProducts(productsWithLocalImages);
-    } catch (err) {
-      setError('Failed to fetch products. Please try again later.');
+        setProducts(productsWithLocalImages);
+      }
+    } catch (err: any) {
+      if (axios.isAxiosError(err) && err.response?.status === 404) {
+        setProducts([]);
+      } else {
+        setError('Failed to fetch products. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
@@ -224,6 +235,11 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   };
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value);
 
+  const handleLogoClick = () => {
+    setSearchQuery(''); // Clear search when clicking logo
+    setSelectedCategoryId(null); // Reset category to show all products
+  };
+
   const filteredProducts = useMemo(() => {
     if (!searchQuery.trim()) return products;
     const query = searchQuery.toLowerCase();
@@ -240,16 +256,20 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
       return;
     }
 
-    const cartItem: CartItem = {
-      productId: product._id,
-      productName: product.name,
-      price: product.price,
-      quantity: 1,
-      image_url: product.image_url,
-      stock_quantity: product.stock_quantity
-    };
-    addItem(cartItem);
-    setShowCartToast(true);
+    if (isLoggedIn && cartUser?._id) {
+      addToCartContext(cartUser._id, product._id, 1, product.price).then(ok => { if (ok) setShowCartToast(true); });
+    } else {
+      const cartItem: CartItem = {
+        productId: product._id,
+        productName: product.name,
+        price: product.price,
+        quantity: 1,
+        image_url: product.image_url,
+        stock_quantity: product.stock_quantity
+      };
+      addItem(cartItem);
+      setShowCartToast(true);
+    }
 
     // Auto close toast after 2 seconds
     setTimeout(() => {
@@ -303,7 +323,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
       {/* Header (Màu đỏ CellphoneS) */}
       <header className="bg-brand-red text-white sticky-top shadow-sm py-2 z-3">
         <div className="container d-flex align-items-center gap-4">
-          <Link to="/" className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
+          <Link to="/" onClick={handleLogoClick} className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
             <i className="bi bi-phone text-warning" style={{ transform: 'rotate(-15deg)' }}></i> ElectroStore
           </Link>
 
@@ -321,9 +341,13 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
           <div className="d-flex align-items-center gap-4 ms-auto text-center">
             <Link to="/cart" className="cursor-pointer text-white text-decoration-none hover-lift">
               <i className="bi bi-cart3 fs-5 position-relative">
-                {getCountUniqueItems() > 0 && (
+                {(isLoggedIn && cart?.items 
+                  ? cart.items.reduce((sum, item) => sum + item.quantity, 0)
+                  : getCountUniqueItems()) > 0 && (
                   <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
-                    {getCountUniqueItems()}
+                    {isLoggedIn && cart?.items 
+                      ? cart.items.reduce((sum, item) => sum + item.quantity, 0)
+                      : getCountUniqueItems()}
                   </span>
                 )}
               </i>

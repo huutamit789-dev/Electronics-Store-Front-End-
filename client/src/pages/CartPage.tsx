@@ -1,19 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import axios from 'axios';
 import { useCartStore } from '@/store/useCartStore';
 import { useAuthStore } from '@/store/useAuthStore';
+import { useCart } from '@/contexts/CartContext';
 import { cartService } from '@/features/cart/services/cartService';
 import { CartItem } from '@/types/order';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
 import { useLogout } from '@/features/auth/hooks/useAuth';
 import { jwtDecode } from 'jwt-decode';
+import toast from 'react-hot-toast';
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8091/api';
 
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
   const { items, updateQuantity, removeItem, clearCart, getTotalAmount } = useCartStore();
   const { isLoggedIn, user } = useAuthStore();
   const { logout } = useLogout();
+  const { cart, updateCartItemQuantityContext, removeFromCartContext, clearCartContext, user: cartUser } = useCart();
   const [isProcessing, setIsProcessing] = React.useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -21,20 +27,47 @@ export const CartPage: React.FC = () => {
   const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [warningMessage, setWarningMessage] = useState('');
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [currentOrderId, setCurrentOrderId] = useState('');
+  const [paymentResult, setPaymentResult] = useState<{ success: boolean; message: string } | null>(null);
+
+  const displayItems = isLoggedIn && cart?.items ? cart.items.map(ci => ({
+    productId: ci.product_id?._id || ci.product_id,
+    productName: ci.product_id?.name || '',
+    price: ci.price,
+    quantity: ci.quantity,
+    image_url: ci.product_id?.image_url || '',
+    stock_quantity: 0
+  })) : items;
+
+  const displayTotal = isLoggedIn && cart?.items 
+    ? cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
+    : getTotalAmount();
   const handleUpdateQuantity = (productId: string, quantity: number) => {
-    updateQuantity(productId, quantity);
+    if (isLoggedIn && cartUser?._id) {
+      updateCartItemQuantityContext(cartUser._id, productId, quantity);
+    } else {
+      updateQuantity(productId, quantity);
+    }
   };
 
   const handleRemoveItem = (productId: string) => {
-    removeItem(productId);
+    if (isLoggedIn && cartUser?._id) {
+      removeFromCartContext(cartUser._id, productId);
+    } else {
+      removeItem(productId);
+    }
   };
 
   const handleClearCart = () => {
-    clearCart();
+    if (isLoggedIn && cartUser?._id) {
+      clearCartContext(cartUser._id);
+    } else {
+      clearCart();
+    }
   };
 
   const handleCheckout = async () => {
-    // Check if user is logged in
     if (!isLoggedIn || !user) {
       handleShowLoginModal();
       return;
@@ -42,7 +75,6 @@ export const CartPage: React.FC = () => {
 
     setIsProcessing(true);
     try {
-      // Get user ID from token
       const token = localStorage.getItem('token');
       let userId = user.username;
       if (token) {
@@ -54,8 +86,7 @@ export const CartPage: React.FC = () => {
         }
       }
 
-      // Map cart items to order format (backend expects product_id, quantity)
-      const orderItems = items.map(item => ({
+      const orderItems = displayItems.map(item => ({
         product_id: item.productId,
         quantity: item.quantity
       }));
@@ -63,20 +94,63 @@ export const CartPage: React.FC = () => {
       const orderData = {
         user_id: userId,
         items: orderItems,
-        total_price: getTotalAmount(),
+        total_price: displayTotal,
       };
 
-      await cartService.createOrder(orderData);
-      clearCart();
-      setShowSuccessToast(true);
-      setTimeout(() => {
-        setShowSuccessToast(false);
-        navigate('/my-orders');
-      }, 2000);
+      const orderResponse = await cartService.createOrder(orderData);
+      const timestamp = Date.now();
+      const orderId = `ORDER-${timestamp}`;
+      setCurrentOrderId(orderId);
+      
+      // Lưu timestamp vào order để tìm lại sau
+      const orderDataId = (orderResponse as any).data?._id || (orderResponse as any)._id;
+      if (orderDataId) {
+        await axios.put(`${API_BASE_URL}/orders/${orderDataId}`, { momo_order_id: orderId }, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+      }
+
+      // Hiển thị modal test payment ngay sau khi tạo order
+      setShowPaymentModal(true);
     } catch (error) {
       console.error('Error creating order:', error);
+      toast.error('Lỗi khi tạo đơn hàng');
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleTestPaymentResult = async (success: boolean) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await axios.post(`${API_BASE_URL}/payments/momo/test-result`, {
+        orderId: currentOrderId,
+        success: success,
+        amount: displayTotal
+      }, {
+        headers: {
+          Authorization: `Bearer ${token}`
+        }
+      });
+
+      setPaymentResult({
+        success: response.data?.success || false,
+        message: response.data?.message || (success ? 'Thanh toán thành công' : 'Thanh toán thất bại')
+      });
+
+      setShowPaymentModal(false);
+
+      if (success) {
+        handleClearCart();
+        setShowSuccessToast(true);
+        setTimeout(() => {
+          setShowSuccessToast(false);
+          navigate('/my-orders');
+        }, 2000);
+      }
+    } catch (error) {
+      console.error('Error testing payment result:', error);
+      toast.error('Lỗi khi xử lý kết quả thanh toán');
     }
   };
 
@@ -90,12 +164,16 @@ export const CartPage: React.FC = () => {
   const handleLogout = () => { logout(); };
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value);
 
+  const handleLogoClick = () => {
+    setSearchQuery(''); // Clear search when clicking logo
+  };
+
   return (
     <div className="d-flex flex-column min-vh-100 bg-light">
       {/* Header (Màu đỏ CellphoneS) */}
       <header className="bg-brand-red text-white sticky-top shadow-sm py-2 z-3">
         <div className="container d-flex align-items-center gap-4">
-          <Link to="/" className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
+          <Link to="/" onClick={handleLogoClick} className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
             <i className="bi bi-phone text-warning" style={{ transform: 'rotate(-15deg)' }}></i> ElectroStore
           </Link>
 
@@ -113,9 +191,9 @@ export const CartPage: React.FC = () => {
           <div className="d-flex align-items-center gap-4 ms-auto text-center">
             <Link to="/cart" className="cursor-pointer text-white text-decoration-none hover-lift">
               <i className="bi bi-cart3 fs-5 position-relative">
-                {items.length > 0 && (
+                {displayItems.length > 0 && (
                   <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
-                    {items.length}
+                    {displayItems.length}
                   </span>
                 )}
               </i>
@@ -151,7 +229,7 @@ export const CartPage: React.FC = () => {
           <h1 className="mb-0">Giỏ hàng của bạn</h1>
         </div>
 
-        {!items || items.length === 0 ? (
+        {!displayItems || displayItems.length === 0 ? (
           <div className="alert alert-info" role="alert">
             <h4 className="alert-heading">Giỏ hàng trống!</h4>
             <p>Bạn chưa có sản phẩm nào trong giỏ hàng. Hãy bắt đầu mua sắm!</p>
@@ -172,7 +250,7 @@ export const CartPage: React.FC = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {items.map((item: CartItem) => (
+                  {displayItems.map((item: any) => (
                     <tr key={item.productId}>
                       <td>
                         <div className="d-flex align-items-center">
@@ -210,7 +288,7 @@ export const CartPage: React.FC = () => {
                 <tfoot>
                   <tr>
                     <th colSpan={3} className="text-end">Tổng cộng:</th>
-                    <th>{getTotalAmount().toLocaleString()} VNĐ</th>
+                    <th>{displayTotal.toLocaleString()} VNĐ</th>
                     <th>
                       <button className="btn btn-secondary btn-sm" onClick={handleClearCart}>
                         <i className="fas fa-trash-alt"></i> Xóa tất cả
@@ -223,7 +301,7 @@ export const CartPage: React.FC = () => {
 
             {/* Mobile Card View */}
             <div className="d-md-none mb-3">
-              {items.map((item: CartItem) => (
+              {displayItems.map((item: any) => (
                 <div key={item.productId} className="card mb-3">
                   <div className="card-body">
                     <div className="d-flex">
@@ -262,7 +340,7 @@ export const CartPage: React.FC = () => {
               <div className="card">
                 <div className="card-body d-flex justify-content-between align-items-center">
                   <span className="fw-bold">Tổng cộng:</span>
-                  <span className="fw-bold text-danger fs-5">{getTotalAmount().toLocaleString()} VNĐ</span>
+                  <span className="fw-bold text-danger fs-5">{displayTotal.toLocaleString()} VNĐ</span>
                 </div>
               </div>
               <button className="btn btn-secondary w-100 mt-2" onClick={handleClearCart}>
@@ -312,6 +390,56 @@ export const CartPage: React.FC = () => {
       {/* Modals */}
       <LoginModal show={showLoginModal} onClose={handleCloseLoginModal} onSwitchToRegister={handleSwitchToRegister} onLoginSuccess={handleCloseLoginModal} />
       <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleCloseRegisterModal} />
+
+      {/* Payment Test Modal */}
+      <div className={`modal fade ${showPaymentModal ? 'show' : ''}`} style={{ display: showPaymentModal ? 'block' : 'none' }} tabIndex={-1} role="dialog">
+        <div className="modal-dialog modal-dialog-centered" role="document">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Test Thanh Toán MoMo</h5>
+              <button type="button" className="btn-close" onClick={() => setShowPaymentModal(false)}></button>
+            </div>
+            <div className="modal-body">
+              <p>Đơn hàng đã được tạo. Vui lòng chọn kết quả thanh toán để test:</p>
+              <div className="d-grid gap-2">
+                <button className="btn btn-success btn-lg" onClick={() => handleTestPaymentResult(true)}>
+                  <i className="bi bi-check-circle me-2"></i>Thanh toán thành công
+                </button>
+                <button className="btn btn-danger btn-lg" onClick={() => handleTestPaymentResult(false)}>
+                  <i className="bi bi-x-circle me-2"></i>Thanh toán thất bại
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {showPaymentModal && <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}></div>}
+
+      {/* Payment Result Modal */}
+      {paymentResult && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1} role="dialog">
+          <div className="modal-dialog modal-dialog-centered" role="document">
+            <div className="modal-content">
+              <div className={`modal-header ${paymentResult.success ? 'bg-success text-white' : 'bg-danger text-white'}`}>
+                <h5 className="modal-title">
+                  {paymentResult.success ? <i className="bi bi-check-circle me-2"></i> : <i className="bi bi-x-circle me-2"></i>}
+                  {paymentResult.success ? 'Thanh toán thành công' : 'Thanh toán thất bại'}
+                </h5>
+                <button type="button" className="btn-close btn-close-white" onClick={() => setPaymentResult(null)}></button>
+              </div>
+              <div className="modal-body">
+                <p className="mb-0">{paymentResult.message}</p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setPaymentResult(null)}>
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+      {paymentResult && <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}></div>}
 
       {/* Toast Notification */}
       <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1100 }}>
