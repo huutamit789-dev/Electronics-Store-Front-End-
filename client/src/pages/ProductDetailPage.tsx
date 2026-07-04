@@ -216,7 +216,7 @@ export const ProductDetailPage: React.FC = () => {
     setTimeout(() => setShowCartToast(false), 2000);
   };
 
-  const handleBuyNow = () => {
+  const handleBuyNow = async () => {
     console.log('ProductDetailPage: === handleBuyNow called ===');
     console.log('ProductDetailPage: Product:', product);
     console.log('ProductDetailPage: User:', user);
@@ -247,7 +247,6 @@ export const ProductDetailPage: React.FC = () => {
       const msg = 'Sản phẩm này đã hết hàng.';
       setStockWarningMessage(msg);
       setShowStockWarning(true);
-      alert(msg); // Temporary alert for debugging
       return;
     }
 
@@ -256,7 +255,6 @@ export const ProductDetailPage: React.FC = () => {
       const msg = 'Số lượng phải lớn hơn 0.';
       setStockWarningMessage(msg);
       setShowStockWarning(true);
-      alert(msg); // Temporary alert for debugging
       return;
     }
 
@@ -265,23 +263,31 @@ export const ProductDetailPage: React.FC = () => {
       const msg = `Số lượng bạn chọn (${quantity}) vượt quá số lượng tồn kho (${currentStock}).`;
       setStockWarningMessage(msg);
       setShowStockWarning(true);
-      alert(msg); // Temporary alert for debugging
       return; // Crucial: stop execution if quantity is invalid
     }
 
-    console.log('ProductDetailPage: handleBuyNow: Calling addItem with quantity:', quantity); // Log before addItem
-    alert(`Mua ngay: ${quantity} sản phẩm.`); // Temporary alert before adding
-    const cartItem = {
-      productId: product._id,
-      productName: product.name + (variantName ? ` (${variantName})` : ''),
-      price: currentPrice,
-      quantity: quantity,
-      image_url: currentImage,
-      stock_quantity: currentStock
-    };
+    console.log('ProductDetailPage: handleBuyNow: Adding item to cart. Quantity:', quantity);
+    
+    if (isLoggedIn && user?._id) {
+      const ok = await addToCartContext(user._id, product._id, quantity, currentPrice);
+      if (ok) {
+        navigate('/cart');
+      } else {
+        alert('Có lỗi xảy ra khi thêm vào giỏ hàng.');
+      }
+    } else {
+      const cartItem = {
+        productId: product._id,
+        productName: product.name + (variantName ? ` (${variantName})` : ''),
+        price: currentPrice,
+        quantity: quantity,
+        image_url: currentImage,
+        stock_quantity: currentStock
+      };
 
-    addItem(cartItem);
-    navigate('/cart');
+      addItem(cartItem);
+      navigate('/cart');
+    }
   };
 
   const handleQuantityChange = (newQuantity: number) => {
