@@ -63,7 +63,20 @@ export const UserHomePage: React.FC = () => {
   const { addToCartContext, user: cartUser, cart } = useCart();
   const [role, setRole] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>('');
+  const [priceRange, setPriceRange] = useState<string>('all');
+  const [ram, setRam] = useState<string>('all');
+  const [storage, setStorage] = useState<string>('all');
+  const [sortBy, setSortBy] = useState<string>('newest');
   const [featuredIndex, setFeaturedIndex] = useState(0);
+
+  // Debounce tìm kiếm để tránh gửi request liên tục lên backend khi người dùng đang gõ
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 400);
+    return () => clearTimeout(handler);
+  }, [searchQuery]);
 
 const categoryScrollRef = useRef<HTMLDivElement>(null);
 
@@ -94,42 +107,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
     const start = featuredIndex * featuredItemsPerPage;
     return allProducts.slice(start, start + featuredItemsPerPage);
   };
-  const fetchProducts = useCallback(async (categoryId: string | null = null) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const productsResponse = categoryId
-        ? await productService.getProductByCategoryId(categoryId, 1, 10)
-        : await productService.getAllProducts(1, 10);
-
-      if (productsResponse?.success === false) {
-        console.warn('Product fetch returned unsuccessful response', productsResponse);
-        setProducts([]);
-      } else {
-        const fetchedProducts = productsResponse.data.products
-          ?? productsResponse.data.categories?.flatMap(category => category.products)
-          ?? [];
-
-        const productsWithLocalImages = (Array.isArray(fetchedProducts) ? fetchedProducts : []).map((product, index) => ({
-          ...product,
-          image_url: (product.image_url && !product.image_url.includes('placeholder'))
-                       ? product.image_url
-                       : localImages[index % localImages.length]
-        }));
-
-        setProducts(productsWithLocalImages);
-      }
-    } catch (err: any) {
-      if (axios.isAxiosError(err) && err.response?.status === 404) {
-        setProducts([]);
-      } else {
-        setError('Failed to fetch products. Please try again later.');
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
+  // fetchProducts đã được chuyển vào trong component CategoryProducts để tối ưu hóa truy vấn
   const fetchAllProducts = useCallback(async () => {
     try {
       const allProductsResponse = await productService.getAllProducts(1, 100);
@@ -182,7 +160,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { fetchAllProducts(); }, [fetchAllProducts]);
 
-  useEffect(() => { fetchProducts(selectedCategoryId); }, [fetchProducts, selectedCategoryId]);
+  // Không cần fetchProducts ở đây nữa vì CategoryProducts tự lắng nghe các thay đổi để tự tải lại sản phẩm
 
   const fetchBanners = useCallback(async () => {
     try {
@@ -236,19 +214,27 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value);
 
   const handleLogoClick = () => {
-    setSearchQuery(''); // Clear search when clicking logo
-    setSelectedCategoryId(null); // Reset category to show all products
+    setSearchQuery(''); // Xóa từ khóa khi click logo
+    setDebouncedSearchQuery('');
+    setSelectedCategoryId(null); // Reset danh mục
+    setPriceRange('all');
+    setRam('all');
+    setStorage('all');
+    setSortBy('newest');
   };
 
-  const filteredProducts = useMemo(() => {
-    if (!searchQuery.trim()) return products;
-    const query = searchQuery.toLowerCase();
-    return allProducts.filter(product =>
-      product.name.toLowerCase().includes(query) ||
-      product.description?.toLowerCase().includes(query) ||
-      (product.cate_id && typeof product.cate_id === 'object' && product.cate_id.name?.toLowerCase().includes(query))
-    );
-  }, [allProducts, searchQuery, products]);
+  /**
+   * @function handleResetFilters
+   * @description Resets all filters, search query, and sorting back to their default values.
+   */
+  const handleResetFilters = () => {
+    setSearchQuery('');
+    setDebouncedSearchQuery('');
+    setPriceRange('all');
+    setRam('all');
+    setStorage('all');
+    setSortBy('newest');
+  };
 
   const handleAddToCart = (product: Product) => {
     if (!isLoggedIn) {
@@ -300,7 +286,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
     checkLoginStatus();
   };
 
-  if (loading && products.length === 0) {
+  if (categories.length === 0) {
     return (
       <div className="d-flex flex-column min-vh-100 bg-light text-dark justify-content-center align-items-center">
         <div className="spinner-border text-danger" role="status"><span className="visually-hidden">Loading...</span></div>
@@ -489,39 +475,124 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
           ))}
         </section>
 
-        {/* Kết quả tìm kiếm (Áp dụng UI mới) */}
-        {searchQuery.trim() && (
-          <div className="mb-5">
-            <h4 className="fw-bold mb-4">Kết quả tìm kiếm: "{searchQuery}"</h4>
-            {filteredProducts.length > 0 ? (
-              <div className="row row-cols-2 row-cols-md-4 g-4">
-                {filteredProducts.map(product => (
-                  <div className="col" key={product._id}>
-                    <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column">
-                      <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
-                        <img src={product.image_url} className="card-img-top rounded-3 object-fit-contain mb-3" height="180" alt={product.name} />
-                        <h6 className="fw-semibold text-truncate">{product.name}</h6>
-                        <div className="text-brand-red fw-bold fs-5 mb-3">{product.price.toLocaleString()}đ</div>
-                      </Link>
-                      <button className="btn btn-light w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red border" onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}>
-                        Thêm vào giỏ
-                      </button>
-                    </div>
-                  </div>
-                ))}
+        {/* Cấu trúc lưới sản phẩm kết hợp Sidebar bộ lọc */}
+        <div className="row g-4 mb-5" id="products-section">
+          {/* Cột bên trái: Bộ lọc Sidebar */}
+          <div className="col-lg-3">
+            <div className="card border-0 rounded-4 shadow-sm p-4 bg-white sticky-top" style={{ top: '80px', zIndex: 10 }}>
+              <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
+                <h5 className="fw-bold fs-6 m-0 text-gray-800 d-flex align-items-center gap-2">
+                  <i className="bi bi-funnel text-danger"></i> Bộ lọc tìm kiếm
+                </h5>
+                <button 
+                  className="btn btn-link btn-sm text-danger text-decoration-none p-0 fw-semibold animate-hover" 
+                  style={{ fontSize: '0.8rem' }}
+                  onClick={handleResetFilters}
+                >
+                  Xóa bộ lọc
+                </button>
               </div>
-            ) : (
-              <div className="text-center py-5 bg-white rounded-4 shadow-sm border">
-                <i className="bi bi-search fs-1 text-muted mb-3"></i>
-                <p className="text-muted">Không tìm thấy sản phẩm nào phù hợp với "{searchQuery}"</p>
-              </div>
-            )}
-          </div>
-        )}
 
-        {/* Các Component Tùy Chọn Của Bạn (Flashsale / Category Products) */}
-        <div id="products-section">
-          <CategoryProducts categoryId={selectedCategoryId} categories={categories} />
+              {/* Sắp xếp */}
+              <div className="mb-4">
+                <label className="form-label fw-bold text-secondary small mb-2">Sắp xếp theo</label>
+                <select 
+                  className="form-select form-select-sm rounded-3 border-light-subtle bg-light text-dark fw-medium"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                  <option value="newest">Mới nhất</option>
+                  <option value="price_asc">Giá: Thấp đến Cao</option>
+                  <option value="price_desc">Giá: Cao đến Thấp</option>
+                </select>
+              </div>
+
+              {/* Khoảng giá */}
+              <div className="mb-4">
+                <label className="form-label fw-bold text-secondary small mb-2">Khoảng giá</label>
+                <div className="d-flex flex-column gap-2">
+                  {[
+                    { label: 'Tất cả', value: 'all' },
+                    { label: 'Dưới 5 triệu', value: 'under5' },
+                    { label: '5 triệu - 15 triệu', value: '5to15' },
+                    { label: '15 triệu - 25 triệu', value: '15to25' },
+                    { label: 'Trên 25 triệu', value: 'over25' }
+                  ].map(opt => (
+                    <div key={opt.value} className="form-check">
+                      <input
+                        className="form-check-input check-danger"
+                        type="radio"
+                        name="priceFilter"
+                        id={`price-${opt.value}`}
+                        checked={priceRange === opt.value}
+                        onChange={() => setPriceRange(opt.value)}
+                      />
+                      <label className="form-check-label text-dark small cursor-pointer" htmlFor={`price-${opt.value}`}>
+                        {opt.label}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bộ nhớ RAM */}
+              <div className="mb-4">
+                <label className="form-label fw-bold text-secondary small mb-2">Dung lượng RAM</label>
+                <div className="d-flex flex-wrap gap-1">
+                  {['all', '4GB', '8GB', '12GB', '16GB'].map(r => (
+                    <button
+                      key={r}
+                      type="button"
+                      className={`btn btn-sm rounded-pill px-3 py-1 fw-medium transition-all ${
+                        ram === r 
+                          ? 'btn-danger text-white border-0 shadow-sm' 
+                          : 'btn-outline-secondary border-light-subtle bg-light text-dark'
+                      }`}
+                      style={{ fontSize: '0.75rem' }}
+                      onClick={() => setRam(r)}
+                    >
+                      {r === 'all' ? 'Tất cả' : r}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Bộ nhớ trong */}
+              <div className="mb-2">
+                <label className="form-label fw-bold text-secondary small mb-2">Bộ nhớ trong</label>
+                <div className="d-flex flex-wrap gap-1">
+                  {['all', '64GB', '128GB', '256GB', '512GB', '1TB'].map(s => (
+                    <button
+                      key={s}
+                      type="button"
+                      className={`btn btn-sm rounded-pill px-3 py-1 fw-medium transition-all ${
+                        storage === s 
+                          ? 'btn-danger text-white border-0 shadow-sm' 
+                          : 'btn-outline-secondary border-light-subtle bg-light text-dark'
+                      }`}
+                      style={{ fontSize: '0.75rem' }}
+                      onClick={() => setStorage(s)}
+                    >
+                      {s === 'all' ? 'Tất cả' : s}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Cột bên phải: Lưới sản phẩm */}
+          <div className="col-lg-9">
+            <CategoryProducts 
+              categoryId={selectedCategoryId} 
+              categories={categories}
+              keyword={debouncedSearchQuery}
+              priceRange={priceRange}
+              ram={ram}
+              storage={storage}
+              sortBy={sortBy}
+            />
+          </div>
         </div>
         <FlashSale products={allProducts} countdown={countdown} />
 

@@ -34,5 +34,29 @@ export const productService = {
 
   deleteProduct: async (id: string): Promise<void> => {
     await axiosClient.delete<void>(`/products/${id}`);
+  },
+
+  /**
+   * @function searchProducts
+   * @description Fetches filtered and paginated product list from backend search API.
+   * @param {Object} params - Search parameters (keyword, cate_id, priceMin, priceMax, sortBy, ram, storage, os, page, limit).
+   * @returns {Promise<ProductApiResponse>} The API response with product lists and pagination.
+   */
+  searchProducts: async (params: {
+    keyword?: string;
+    cate_id?: string;
+    priceMin?: number;
+    priceMax?: number;
+    sortBy?: string;
+    ram?: string;
+    storage?: string;
+    os?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<ProductApiResponse> => {
+    const response = await axiosClient.get<ProductApiResponse>('/products/search', {
+      params
+    });
+    return response.data;
   }
 };
