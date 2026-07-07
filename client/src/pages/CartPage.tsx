@@ -1,3 +1,9 @@
+/**
+ * @file CartPage.tsx
+ * @description Frontend Cart page displaying items in user's shopping cart.
+ * Integrates search bar, item updates/removals, coupon verification, discount summary, and MoMo checkout payment.
+ */
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import axios from 'axios';
@@ -11,9 +17,14 @@ import { RegisterModal } from '@/components/auth/RegisterModal';
 import { useLogout } from '@/features/auth/hooks/useAuth';
 import { jwtDecode } from 'jwt-decode';
 import toast from 'react-hot-toast';
+import { couponService } from '@/features/coupons/services/couponService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8091/api';
 
+/**
+ * @component CartPage
+ * @description Renders the shopping cart details, handles quantities, coupon application, and order creation.
+ */
 export const CartPage: React.FC = () => {
   const navigate = useNavigate();
   const { items, updateQuantity, removeItem, clearCart, getTotalAmount } = useCartStore();
@@ -31,6 +42,12 @@ export const CartPage: React.FC = () => {
   const [currentOrderId, setCurrentOrderId] = useState('');
   const [paymentResult, setPaymentResult] = useState<{ success: boolean; message: string } | null>(null);
 
+  // States của Coupon giảm giá
+  const [couponInput, setCouponInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
+  const [discountAmount, setDiscountAmount] = useState(0);
+
+  // Mảng sản phẩm hiển thị tùy thuộc vào trạng thái đăng nhập
   const displayItems = isLoggedIn && cart?.items ? cart.items.map(ci => ({
     productId: ci.product_id?._id || ci.product_id,
     productName: ci.product_id?.name || '',
@@ -40,10 +57,42 @@ export const CartPage: React.FC = () => {
     stock_quantity: 0
   })) : items;
 
+  // Tính tổng tiền tạm tính
   const displayTotal = isLoggedIn && cart?.items 
     ? cart.items.reduce((sum, item) => sum + (item.price * item.quantity), 0)
     : getTotalAmount();
+
+  // Tự động tính toán lại số tiền giảm khi tổng tiền tạm tính thay đổi
+  useEffect(() => {
+    if (appliedCoupon) {
+      let newDiscount = 0;
+      if (appliedCoupon.discount_type === 'percentage') {
+        newDiscount = (displayTotal * appliedCoupon.discount_value) / 100;
+        // Kiểm tra số tiền giảm tối đa
+        if (appliedCoupon.max_discount_amount && newDiscount > appliedCoupon.max_discount_amount) {
+          newDiscount = appliedCoupon.max_discount_amount;
+        }
+      } else {
+        newDiscount = appliedCoupon.discount_value;
+      }
+      
+      // Không được giảm giá âm hoặc lớn hơn tổng tiền đơn hàng
+      if (newDiscount > displayTotal) {
+        newDiscount = displayTotal;
+      }
+
+      setDiscountAmount(newDiscount);
+    }
+  }, [displayTotal, appliedCoupon]);
+
+  /**
+   * @function handleUpdateQuantity
+   * @description Modifies the quantity of a target item in the cart.
+   * @param {string} productId - Product identifier.
+   * @param {number} quantity - Target quantity.
+   */
   const handleUpdateQuantity = (productId: string, quantity: number) => {
+    if (quantity <= 0) return;
     if (isLoggedIn && cartUser?._id) {
       updateCartItemQuantityContext(cartUser._id, productId, quantity);
     } else {
@@ -51,6 +100,11 @@ export const CartPage: React.FC = () => {
     }
   };
 
+  /**
+   * @function handleRemoveItem
+   * @description Deletes an item from the cart.
+   * @param {string} productId - Product identifier.
+   */
   const handleRemoveItem = (productId: string) => {
     if (isLoggedIn && cartUser?._id) {
       removeFromCartContext(cartUser._id, productId);
@@ -59,14 +113,62 @@ export const CartPage: React.FC = () => {
     }
   };
 
+  /**
+   * @function handleClearCart
+   * @description Empties all items inside the cart.
+   */
   const handleClearCart = () => {
     if (isLoggedIn && cartUser?._id) {
       clearCartContext(cartUser._id);
     } else {
       clearCart();
     }
+    // Gỡ mã giảm giá nếu giỏ hàng trống
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
   };
 
+  /**
+   * @function handleApplyCoupon
+   * @description Connects to the backend coupon verify API to validate and apply the discount.
+   */
+  const handleApplyCoupon = async () => {
+    if (!couponInput.trim()) {
+      toast.error('Vui lòng nhập mã giảm giá');
+      return;
+    }
+
+    try {
+      const response = await couponService.verifyCoupon(couponInput, displayTotal);
+      if (response.success) {
+        setAppliedCoupon(response.data);
+        setDiscountAmount(response.data.discountAmount);
+        toast.success(`Áp dụng mã ${response.data.code} thành công!`);
+      } else {
+        toast.error(response.message || 'Mã giảm giá không hợp lệ');
+      }
+    } catch (error: any) {
+      console.error('Lỗi khi áp dụng coupon:', error);
+      const errMsg = error.response?.data?.message || 'Lỗi khi áp dụng mã giảm giá';
+      toast.error(errMsg);
+    }
+  };
+
+  /**
+   * @function handleRemoveCoupon
+   * @description Clears the currently applied discount code.
+   */
+  const handleRemoveCoupon = () => {
+    setAppliedCoupon(null);
+    setDiscountAmount(0);
+    setCouponInput('');
+    toast.success('Đã gỡ mã giảm giá');
+  };
+
+  /**
+   * @function handleCheckout
+   * @description Processes order creation with final discounted prices.
+   */
   const handleCheckout = async () => {
     if (!isLoggedIn || !user) {
       handleShowLoginModal();
@@ -91,10 +193,14 @@ export const CartPage: React.FC = () => {
         quantity: item.quantity
       }));
 
+      // Đơn hàng lưu cả giá gốc, mã giảm giá và số tiền được giảm
       const orderData = {
         user_id: userId,
         items: orderItems,
-        total_price: displayTotal,
+        total_price: displayTotal - discountAmount, // Số tiền sau chiết khấu
+        original_price: displayTotal, // Số tiền trước chiết khấu
+        discount_amount: discountAmount,
+        coupon_code: appliedCoupon ? appliedCoupon.code : null
       };
 
       const orderResponse = await cartService.createOrder(orderData);
@@ -102,7 +208,6 @@ export const CartPage: React.FC = () => {
       const orderId = `ORDER-${timestamp}`;
       setCurrentOrderId(orderId);
       
-      // Lưu timestamp vào order để tìm lại sau
       const orderDataId = (orderResponse as any).data?._id || (orderResponse as any)._id;
       if (orderDataId) {
         await axios.put(`${API_BASE_URL}/orders/${orderDataId}`, { momo_order_id: orderId }, {
@@ -110,23 +215,28 @@ export const CartPage: React.FC = () => {
         });
       }
 
-      // Hiển thị modal test payment ngay sau khi tạo order
       setShowPaymentModal(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error creating order:', error);
-      toast.error('Lỗi khi tạo đơn hàng');
+      const errMsg = error.response?.data?.message || 'Lỗi khi tạo đơn hàng';
+      toast.error(errMsg);
     } finally {
       setIsProcessing(false);
     }
   };
 
+  /**
+   * @function handleTestPaymentResult
+   * @description Mocks MoMo payment gateways callback responses.
+   * @param {boolean} success - Represents mockup payment response state.
+   */
   const handleTestPaymentResult = async (success: boolean) => {
     try {
       const token = localStorage.getItem('token');
       const response = await axios.post(`${API_BASE_URL}/payments/momo/test-result`, {
         orderId: currentOrderId,
         success: success,
-        amount: displayTotal
+        amount: displayTotal - discountAmount
       }, {
         headers: {
           Authorization: `Bearer ${token}`
@@ -154,7 +264,6 @@ export const CartPage: React.FC = () => {
     }
   };
 
-  // Modal handlers
   const handleShowLoginModal = () => { setShowLoginModal(true); setShowRegisterModal(false); };
   const handleCloseLoginModal = () => setShowLoginModal(false);
   const handleShowRegisterModal = () => { setShowRegisterModal(true); setShowLoginModal(false); };
@@ -165,7 +274,7 @@ export const CartPage: React.FC = () => {
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => setSearchQuery(e.target.value);
 
   const handleLogoClick = () => {
-    setSearchQuery(''); // Clear search when clicking logo
+    setSearchQuery('');
   };
 
   return (
@@ -223,146 +332,191 @@ export const CartPage: React.FC = () => {
 
       <main className="container flex-grow-1 py-4">
         <div className="d-flex align-items-center mb-4">
-          <button className="btn btn-outline-secondary me-3" onClick={() => navigate('/')}>
-            <i className="bi bi-arrow-left"></i> Quay lại
+          <button className="btn btn-outline-secondary me-3 rounded-3" onClick={() => navigate('/')}>
+            <i className="bi bi-arrow-left"></i> Quay lại trang chủ
           </button>
-          <h1 className="mb-0">Giỏ hàng của bạn</h1>
+          <h1 className="mb-0 fs-3 fw-bold text-gray-800">Giỏ hàng của bạn</h1>
         </div>
 
         {!displayItems || displayItems.length === 0 ? (
-          <div className="alert alert-info" role="alert">
-            <h4 className="alert-heading">Giỏ hàng trống!</h4>
-            <p>Bạn chưa có sản phẩm nào trong giỏ hàng. Hãy bắt đầu mua sắm!</p>
-            <Link to="/" className="btn btn-primary mt-2">Tiếp tục mua sắm</Link>
+          <div className="alert alert-info shadow-sm rounded-4 p-4" role="alert">
+            <h4 className="alert-heading fw-bold">Giỏ hàng trống!</h4>
+            <p className="mb-3">Bạn chưa có sản phẩm nào trong giỏ hàng. Hãy lựa chọn sản phẩm phù hợp!</p>
+            <Link to="/" className="btn btn-danger rounded-3 px-4 py-2 fw-bold">Quay lại mua sắm</Link>
           </div>
         ) : (
-          <>
-            {/* Desktop Table View */}
-            <div className="table-responsive mb-3 d-none d-md-block">
-              <table className="table table-bordered table-striped">
-                <thead>
-                  <tr>
-                    <th>Sản phẩm</th>
-                    <th>Giá</th>
-                    <th>Số lượng</th>
-                    <th>Tổng cộng</th>
-                    <th>Hành động</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayItems.map((item: any) => (
-                    <tr key={item.productId}>
-                      <td>
-                        <div className="d-flex align-items-center">
-                          <img src={item.image_url} alt={item.productName} className="img-thumbnail me-2" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />
-                          <span>{item.productName}</span>
-                        </div>
-                      </td>
-                      <td>{item.price.toLocaleString()} VNĐ</td>
-                      <td>
-                        <div className="input-group" style={{ width: '120px' }}>
-                          <button className="btn btn-outline-secondary" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}>
-                            <i className="fas fa-minus"></i>
-                          </button>
-                          <input
-                            type="number"
-                            className="form-control text-center"
-                            value={item.quantity}
-                            onChange={(e) => handleUpdateQuantity(item.productId, parseInt(e.target.value) || 1)}
-                            min="1"
-                          />
-                          <button className="btn btn-outline-secondary" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}>
-                            <i className="fas fa-plus"></i>
-                          </button>
-                        </div>
-                      </td>
-                      <td>{(item.price * item.quantity).toLocaleString()} VNĐ</td>
-                      <td>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleRemoveItem(item.productId)}>
-                          <i className="fas fa-trash"></i> Xóa
-                        </button>
-                      </td>
+          <div className="row g-4">
+            {/* Danh sách sản phẩm bên trái (col-lg-8) */}
+            <div className="col-lg-8">
+              {/* Desktop Table View */}
+              <div className="table-responsive mb-3 d-none d-md-block bg-white p-3 rounded-4 shadow-sm border">
+                <table className="table table-align-middle align-middle m-0">
+                  <thead>
+                    <tr>
+                      <th className="border-0">Sản phẩm</th>
+                      <th className="border-0">Đơn giá</th>
+                      <th className="border-0" style={{ width: '130px' }}>Số lượng</th>
+                      <th className="border-0">Tổng tiền</th>
+                      <th className="border-0 text-center" style={{ width: '100px' }}>Hành động</th>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr>
-                    <th colSpan={3} className="text-end">Tổng cộng:</th>
-                    <th>{displayTotal.toLocaleString()} VNĐ</th>
-                    <th>
-                      <button className="btn btn-secondary btn-sm" onClick={handleClearCart}>
-                        <i className="fas fa-trash-alt"></i> Xóa tất cả
-                      </button>
-                    </th>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-
-            {/* Mobile Card View */}
-            <div className="d-md-none mb-3">
-              {displayItems.map((item: any) => (
-                <div key={item.productId} className="card mb-3">
-                  <div className="card-body">
-                    <div className="d-flex">
-                      <img src={item.image_url} alt={item.productName} className="img-thumbnail me-3" style={{ width: '80px', height: '80px', objectFit: 'cover' }} />
-                      <div className="flex-grow-1">
-                        <h6 className="card-title mb-1">{item.productName}</h6>
-                        <p className="card-text text-danger fw-bold mb-2">{item.price.toLocaleString()} VNĐ</p>
-                        <div className="d-flex align-items-center gap-2">
-                          <div className="input-group" style={{ width: '100px' }}>
-                            <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}>
-                              <i className="fas fa-minus"></i>
+                  </thead>
+                  <tbody>
+                    {displayItems.map((item: any) => (
+                      <tr key={item.productId}>
+                        <td>
+                          <div className="d-flex align-items-center">
+                            <img src={item.image_url} alt={item.productName} className="img-thumbnail me-3 rounded-3" style={{ width: '55px', height: '55px', objectFit: 'contain' }} />
+                            <span className="fw-semibold text-gray-800">{item.productName}</span>
+                          </div>
+                        </td>
+                        <td className="fw-medium">{item.price.toLocaleString()}đ</td>
+                        <td>
+                          <div className="input-group input-group-sm border rounded-3" style={{ maxWidth: '120px' }}>
+                            <button className="btn btn-light border-0" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}>
+                              <i className="bi bi-dash"></i>
                             </button>
                             <input
-                              type="number"
-                              className="form-control text-center"
+                              type="text"
+                              className="form-control text-center bg-transparent border-0"
                               value={item.quantity}
-                              onChange={(e) => handleUpdateQuantity(item.productId, parseInt(e.target.value) || 1)}
-                              min="1"
+                              readOnly
                             />
-                            <button className="btn btn-outline-secondary btn-sm" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}>
-                              <i className="fas fa-plus"></i>
+                            <button className="btn btn-light border-0" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}>
+                              <i className="bi bi-plus"></i>
                             </button>
                           </div>
-                          <button className="btn btn-danger btn-sm" onClick={() => handleRemoveItem(item.productId)}>
-                            <i className="fas fa-trash"></i>
+                        </td>
+                        <td className="fw-bold text-gray-900">{(item.price * item.quantity).toLocaleString()}đ</td>
+                        <td className="text-center">
+                          <button className="btn btn-outline-danger btn-sm rounded-3 border-light-subtle" onClick={() => handleRemoveItem(item.productId)}>
+                            <i className="bi bi-trash"></i>
                           </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top">
-                      <span className="fw-bold">Tổng: {(item.price * item.quantity).toLocaleString()} VNĐ</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              <div className="card">
-                <div className="card-body d-flex justify-content-between align-items-center">
-                  <span className="fw-bold">Tổng cộng:</span>
-                  <span className="fw-bold text-danger fs-5">{displayTotal.toLocaleString()} VNĐ</span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <div className="text-start mt-3 pt-3 border-top">
+                  <button className="btn btn-outline-secondary btn-sm rounded-3 fw-bold" onClick={handleClearCart}>
+                    <i className="bi bi-trash-fill me-1"></i> Xóa tất cả sản phẩm
+                  </button>
                 </div>
               </div>
-              <button className="btn btn-secondary w-100 mt-2" onClick={handleClearCart}>
-                <i className="fas fa-trash-alt"></i> Xóa tất cả
-              </button>
+
+              {/* Mobile Card View */}
+              <div className="d-md-none mb-3">
+                {displayItems.map((item: any) => (
+                  <div key={item.productId} className="card mb-3 border border-light rounded-4 shadow-sm p-2 bg-white">
+                    <div className="card-body p-2">
+                      <div className="d-flex align-items-center">
+                        <img src={item.image_url} alt={item.productName} className="img-thumbnail me-3 rounded-3" style={{ width: '70px', height: '70px', objectFit: 'contain' }} />
+                        <div className="flex-grow-1">
+                          <h6 className="card-title fw-bold text-gray-800 mb-1" style={{ fontSize: '0.9rem' }}>{item.productName}</h6>
+                          <p className="text-brand-red fw-bold mb-2 small">{item.price.toLocaleString()}đ</p>
+                          <div className="d-flex align-items-center justify-content-between">
+                            <div className="input-group input-group-sm border rounded-3" style={{ width: '100px' }}>
+                              <button className="btn btn-light border-0" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}>
+                                <i className="bi bi-dash"></i>
+                              </button>
+                              <input
+                                type="text"
+                                className="form-control text-center bg-transparent border-0"
+                                value={item.quantity}
+                                readOnly
+                              />
+                              <button className="btn btn-light border-0" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity + 1)}>
+                                <i className="bi bi-plus"></i>
+                              </button>
+                            </div>
+                            <button className="btn btn-outline-danger btn-sm rounded-3" onClick={() => handleRemoveItem(item.productId)}>
+                              <i className="bi bi-trash"></i>
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top text-gray-800 fw-bold small">
+                        <span>Tổng mặt hàng:</span>
+                        <span>{(item.price * item.quantity).toLocaleString()}đ</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                <button className="btn btn-outline-secondary w-100 rounded-3 py-2 fw-bold" onClick={handleClearCart}>
+                  <i className="bi bi-trash-fill me-1"></i> Xóa tất cả sản phẩm
+                </button>
+              </div>
             </div>
 
-            <div className="text-end">
-              <button
-                className="btn btn-primary btn-lg"
-                onClick={handleCheckout}
-                disabled={isProcessing}
-              >
-                {isProcessing ? 'Đang xử lý...' : 'Tiến hành thanh toán'}
-              </button>
+            {/* Sidebar Tóm tắt đơn hàng + Mã giảm giá bên phải (col-lg-4) */}
+            <div className="col-lg-4">
+              <div className="card border-0 rounded-4 shadow-sm p-4 bg-white sticky-top" style={{ top: '80px' }}>
+                <h5 className="fw-bold text-gray-800 mb-3 pb-2 border-bottom">Tóm tắt đơn hàng</h5>
+                
+                {/* Khu vực áp dụng mã giảm giá */}
+                <div className="mb-4">
+                  <label className="form-label fw-bold text-secondary small mb-2">Mã giảm giá (Coupon)</label>
+                  <div className="input-group">
+                    <input 
+                      type="text" 
+                      className="form-control rounded-start-3 border-light-subtle text-uppercase fw-semibold" 
+                      placeholder="Nhập mã KM" 
+                      value={couponInput}
+                      onChange={(e) => setCouponInput(e.target.value)}
+                      disabled={appliedCoupon !== null}
+                    />
+                    {appliedCoupon ? (
+                      <button className="btn btn-outline-danger px-3 rounded-end-3 fw-bold" type="button" onClick={handleRemoveCoupon}>
+                        Gỡ bỏ
+                      </button>
+                    ) : (
+                      <button className="btn btn-danger px-3 rounded-end-3 fw-bold" type="button" onClick={handleApplyCoupon}>
+                        Áp dụng
+                      </button>
+                    )}
+                  </div>
+                  {appliedCoupon && (
+                    <div className="text-success small mt-1 fw-bold">
+                      <i className="bi bi-patch-check-fill me-1"></i>
+                      Đã giảm {appliedCoupon.discount_type === 'percentage' ? `${appliedCoupon.discount_value}%` : `${appliedCoupon.discount_value.toLocaleString()}đ`}
+                    </div>
+                  )}
+                </div>
+
+                {/* Chi tiết hóa đơn */}
+                <div className="d-flex justify-content-between mb-2 small">
+                  <span className="text-secondary">Tạm tính:</span>
+                  <span className="fw-semibold text-dark">{displayTotal.toLocaleString()}đ</span>
+                </div>
+                
+                {discountAmount > 0 && (
+                  <div className="d-flex justify-content-between mb-2 small text-success fw-semibold">
+                    <span>Mã giảm giá:</span>
+                    <span>-{discountAmount.toLocaleString()}đ</span>
+                  </div>
+                )}
+                
+                <hr className="my-3 border-light-subtle" />
+                
+                <div className="d-flex justify-content-between align-items-center mb-4">
+                  <span className="fw-bold text-gray-800">Tổng thanh toán:</span>
+                  <span className="fw-bold text-danger fs-4">{(displayTotal - discountAmount).toLocaleString()}đ</span>
+                </div>
+                
+                <button
+                  className="btn btn-danger btn-lg w-100 rounded-3 fw-bold py-2 fs-6 shadow-sm"
+                  onClick={handleCheckout}
+                  disabled={isProcessing}
+                >
+                  {isProcessing ? 'Đang xử lý...' : 'Tiến hành đặt hàng'}
+                </button>
+              </div>
             </div>
-          </>
+          </div>
         )}
       </main>
 
       {/* Footer */}
-      <footer className="bg-dark text-white py-5 mt-auto">
+      <footer className="bg-dark text-white py-5 mt-auto border-top border-secondary">
         <div className="container">
           <div className="row g-4">
             <div className="col-md-4">
@@ -387,7 +541,7 @@ export const CartPage: React.FC = () => {
         </div>
       </footer>
 
-      {/* Modals */}
+      {/* Modals xác thực */}
       <LoginModal show={showLoginModal} onClose={handleCloseLoginModal} onSwitchToRegister={handleSwitchToRegister} onLoginSuccess={handleCloseLoginModal} />
       <RegisterModal show={showRegisterModal} onClose={handleCloseRegisterModal} onSwitchToLogin={handleSwitchToLogin} onRegisterSuccess={handleCloseRegisterModal} />
 
@@ -396,16 +550,16 @@ export const CartPage: React.FC = () => {
         <div className="modal-dialog modal-dialog-centered" role="document">
           <div className="modal-content">
             <div className="modal-header">
-              <h5 className="modal-title">Test Thanh Toán MoMo</h5>
+              <h5 className="modal-title fw-bold">Test Thanh Toán MoMo</h5>
               <button type="button" className="btn-close" onClick={() => setShowPaymentModal(false)}></button>
             </div>
             <div className="modal-body">
-              <p>Đơn hàng đã được tạo. Vui lòng chọn kết quả thanh toán để test:</p>
-              <div className="d-grid gap-2">
-                <button className="btn btn-success btn-lg" onClick={() => handleTestPaymentResult(true)}>
+              <p className="text-secondary">Đơn hàng đã được tạo. Vui lòng chọn kết quả thanh toán để test:</p>
+              <div className="d-grid gap-2 mt-3">
+                <button className="btn btn-success btn-lg rounded-3 fw-bold" onClick={() => handleTestPaymentResult(true)}>
                   <i className="bi bi-check-circle me-2"></i>Thanh toán thành công
                 </button>
-                <button className="btn btn-danger btn-lg" onClick={() => handleTestPaymentResult(false)}>
+                <button className="btn btn-danger btn-lg rounded-3 fw-bold" onClick={() => handleTestPaymentResult(false)}>
                   <i className="bi bi-x-circle me-2"></i>Thanh toán thất bại
                 </button>
               </div>
@@ -421,17 +575,17 @@ export const CartPage: React.FC = () => {
           <div className="modal-dialog modal-dialog-centered" role="document">
             <div className="modal-content">
               <div className={`modal-header ${paymentResult.success ? 'bg-success text-white' : 'bg-danger text-white'}`}>
-                <h5 className="modal-title">
+                <h5 className="modal-title fw-bold">
                   {paymentResult.success ? <i className="bi bi-check-circle me-2"></i> : <i className="bi bi-x-circle me-2"></i>}
                   {paymentResult.success ? 'Thanh toán thành công' : 'Thanh toán thất bại'}
                 </h5>
                 <button type="button" className="btn-close btn-close-white" onClick={() => setPaymentResult(null)}></button>
               </div>
               <div className="modal-body">
-                <p className="mb-0">{paymentResult.message}</p>
+                <p className="mb-0 text-secondary">{paymentResult.message}</p>
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setPaymentResult(null)}>
+                <button type="button" className="btn btn-secondary rounded-3" onClick={() => setPaymentResult(null)}>
                   Đóng
                 </button>
               </div>

@@ -144,6 +144,14 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
           </Link>
         </li>
 
+        {/* Nav Item - Mã giảm giá */}
+        <li className="nav-item">
+          <Link className="nav-link" to="/admin/coupons">
+            <i className="fas fa-fw fa-tag"></i>
+            <span>Mã giảm giá</span>
+          </Link>
+        </li>
+
         {/* Divider */}
         <hr className="sidebar-divider" />
 

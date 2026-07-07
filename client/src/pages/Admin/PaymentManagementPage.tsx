@@ -6,14 +6,13 @@ import { API_BASE_URL } from '@/config/constants'; // Import toast và Toaster
 // Định nghĩa kiểu dữ liệu cho Payment
 interface Payment {
   _id: string;
-  order_id: string; // ID của đơn hàng liên quan
-  user_id: string;  // ID của người dùng thực hiện thanh toán
+  order_id: any; // Có thể là string ID hoặc object Order (khi được populate từ backend)
+  user_id: any;  // Có thể là string ID hoặc object User
   amount: number;
-  payment_method: string; // Ví dụ: 'Credit Card', 'PayPal', 'COD'
+  payment_method: string;
   status: 'pending' | 'completed' | 'failed';
-  transaction_id?: string; // ID giao dịch từ cổng thanh toán
+  transaction_id?: string;
   created_at: string;
-  // Thêm các trường khác nếu có
 }
 
 // Định nghĩa kiểu dữ liệu cho Payment API Response (đã cập nhật)
@@ -99,10 +98,12 @@ export const PaymentManagementPage: React.FC = () => {
 
   const filteredPayments = payments.filter((payment) => {
     const keyword = searchTerm.toLowerCase();
+    const orderId = typeof payment.order_id === 'object' ? payment.order_id?._id : payment.order_id;
+    const userId = typeof payment.user_id === 'object' ? payment.user_id?._id : payment.user_id;
     return (
       payment._id?.toLowerCase().includes(keyword) ||
-      payment.order_id?.toLowerCase().includes(keyword) ||
-      payment.user_id?.toLowerCase().includes(keyword) ||
+      orderId?.toLowerCase().includes(keyword) ||
+      userId?.toLowerCase().includes(keyword) ||
       payment.payment_method?.toLowerCase().includes(keyword) ||
       payment.status?.toLowerCase().includes(keyword)
     );
@@ -173,13 +174,17 @@ export const PaymentManagementPage: React.FC = () => {
                 {filteredPayments.map((payment) => (
                   <tr key={payment._id}>
                     <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{payment._id}</span></td>
-                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{payment.order_id}</span></td>
-                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{payment.user_id}</span></td>
-                    <td>{payment.amount.toLocaleString()} VNĐ</td>
+                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>
+                      {typeof payment.order_id === 'object' ? payment.order_id?._id : payment.order_id}
+                    </span></td>
+                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>
+                      {typeof payment.user_id === 'object' ? (payment.user_id?.username || payment.user_id?._id) : payment.user_id}
+                    </span></td>
+                    <td>{(payment.amount ?? 0).toLocaleString()} VNĐ</td>
                     <td>{payment.payment_method}</td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(payment.status)}`}>
-                        {payment.status.toUpperCase()}
+                        {(payment.status ?? 'N/A').toUpperCase()}
                       </span>
                     </td>
                     <td>{new Date(payment.created_at).toLocaleString()}</td>
@@ -230,11 +235,11 @@ export const PaymentManagementPage: React.FC = () => {
             <div className="modal-header"><h5 className="modal-title">Chi tiết thanh toán</h5></div>
             <div className="modal-body">
               <p><strong>ID Thanh toán:</strong> {currentPayment._id}</p>
-              <p><strong>ID Đơn hàng:</strong> {currentPayment.order_id}</p>
-              <p><strong>ID Người dùng:</strong> {currentPayment.user_id}</p>
-              <p><strong>Số tiền:</strong> {currentPayment.amount.toLocaleString()} VNĐ</p>
+              <p><strong>ID Đơn hàng:</strong> {typeof currentPayment.order_id === 'object' ? currentPayment.order_id?._id : currentPayment.order_id}</p>
+              <p><strong>ID Người dùng:</strong> {typeof currentPayment.user_id === 'object' ? (currentPayment.user_id?.username || currentPayment.user_id?._id) : currentPayment.user_id}</p>
+              <p><strong>Số tiền:</strong> {(currentPayment.amount ?? 0).toLocaleString()} VNĐ</p>
               <p><strong>Phương thức:</strong> {currentPayment.payment_method}</p>
-              <p><strong>Trạng thái:</strong> {currentPayment.status.toUpperCase()}</p>
+              <p><strong>Trạng thái:</strong> {(currentPayment.status ?? 'N/A').toUpperCase()}</p>
               {currentPayment.transaction_id && <p><strong>ID Giao dịch:</strong> {currentPayment.transaction_id}</p>}
               <p><strong>Ngày tạo:</strong> {new Date(currentPayment.created_at).toLocaleString()}</p>
             </div>
