@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Product } from '@/types/product';
 import { useCartStore } from '@/store/useCartStore';
@@ -16,11 +16,27 @@ export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => 
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [itemsPerPage, setItemsPerPage] = useState(4);
   const { addItem } = useCartStore();
   const { isLoggedIn } = useAuthStore();
   const { addToCartContext, user } = useCart();
 
-  const itemsPerPage = 4; // Changed from 4 to 10
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setItemsPerPage(2);
+      } else if (window.innerWidth < 992) {
+        setItemsPerPage(3);
+      } else {
+        setItemsPerPage(4);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
   const totalSlides = Math.ceil(products.length / itemsPerPage);
 
   const nextSlide = () => {

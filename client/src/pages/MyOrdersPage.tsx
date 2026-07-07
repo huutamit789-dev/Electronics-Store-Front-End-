@@ -295,11 +295,11 @@ export const MyOrdersPage: React.FC = () => {
 
 
       <div className="container flex-grow-1" style={{ maxWidth: 1200, margin: '0 auto', padding: '20px' }}>
-        <div className="d-flex align-items-center mb-4">
-          <button className="btn btn-outline-secondary me-3" onClick={() => navigate('/')}>
+        <div className="d-flex align-items-center mb-4 flex-wrap gap-2">
+          <button className="btn btn-outline-secondary me-3 flex-shrink-0" onClick={() => navigate('/')}>
             <i className="bi bi-arrow-left"></i> Quay lại
           </button>
-          <h1 className="mb-0">Đơn hàng của tôi</h1>
+          <h1 className="mb-0 flex-grow-1">Đơn hàng của tôi</h1>
         </div>
 
         {orders.length === 0 ? (
@@ -315,14 +315,16 @@ export const MyOrdersPage: React.FC = () => {
             {orders.map((order) => (
               <div className="col-12 mb-4" key={order._id}>
                 <div className="card">
-                  <div className="card-header d-flex justify-content-between align-items-center">
-                    <div>
-                      <small className="text-muted">Mã đơn hàng: #{order._id}</small>
-                      <div className="small text-muted">
-                        Ngày đặt: {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                  <div className="card-header">
+                    <div className="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                      <div className="flex-grow-1" style={{ minWidth: '200px' }}>
+                        <small className="text-muted d-block" title={`Mã đơn hàng: #${order._id}`}>Mã đơn hàng: #{order._id}</small>
+                        <div className="small text-muted">
+                          Ngày đặt: {new Date(order.created_at).toLocaleDateString('vi-VN')}
+                        </div>
                       </div>
+                      {getStatusBadge(order.status)}
                     </div>
-                    {getStatusBadge(order.status)}
                   </div>
                   <div className="card-body">
                     <div className="table-responsive">
@@ -341,10 +343,10 @@ export const MyOrdersPage: React.FC = () => {
                                   <img
                                     src={item.product_id.image_url}
                                     alt={item.product_id.name}
-                                    className="img-thumbnail me-2"
+                                    className="img-thumbnail me-2 flex-shrink-0"
                                     style={{ width: '50px', height: '50px', objectFit: 'cover' }}
                                   />
-                                  <span>{item.product_id.name}</span>
+                                  <span className="text-truncate" style={{ maxWidth: '250px' }} title={item.product_id.name}>{item.product_id.name}</span>
                                 </div>
                               </td>
                               <td>{item.quantity}</td>

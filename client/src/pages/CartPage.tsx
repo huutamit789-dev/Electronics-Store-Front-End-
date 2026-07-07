@@ -40,7 +40,7 @@ export const CartPage: React.FC = () => {
   const [warningMessage, setWarningMessage] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentOrderId, setCurrentOrderId] = useState('');
-  const [paymentResult, setPaymentResult] = useState<{ success: boolean; message: string } | null>(null);
+  const [paymentResult, setPaymentResult] = useState<{ success: boolean; message: string; payload?: any } | null>(null);
 
   // States của Coupon giảm giá
   const [couponInput, setCouponInput] = useState('');
@@ -215,6 +215,7 @@ export const CartPage: React.FC = () => {
         });
       }
 
+      // Cho môi trường dev: Hiển thị Modal để chọn kết quả test và xem payload trả về
       setShowPaymentModal(true);
     } catch (error: any) {
       console.error('Error creating order:', error);
@@ -232,6 +233,7 @@ export const CartPage: React.FC = () => {
    */
   const handleTestPaymentResult = async (success: boolean) => {
     try {
+      setShowPaymentModal(false);
       const token = localStorage.getItem('token');
       const response = await axios.post(`${API_BASE_URL}/payments/momo/test-result`, {
         orderId: currentOrderId,
@@ -245,7 +247,8 @@ export const CartPage: React.FC = () => {
 
       setPaymentResult({
         success: response.data?.success || false,
-        message: response.data?.message || (success ? 'Thanh toán thành công' : 'Thanh toán thất bại')
+        message: response.data?.message || (success ? 'Thanh toán thành công' : 'Thanh toán thất bại'),
+        payload: response.data?.data // Lưu payload MoMo phản hồi để hiển thị cho dev
       });
 
       setShowPaymentModal(false);
@@ -582,7 +585,15 @@ export const CartPage: React.FC = () => {
                 <button type="button" className="btn-close btn-close-white" onClick={() => setPaymentResult(null)}></button>
               </div>
               <div className="modal-body">
-                <p className="mb-0 text-secondary">{paymentResult.message}</p>
+                <p className="mb-3 text-secondary">{paymentResult.message}</p>
+                {paymentResult.payload && (
+                  <div className="mt-3">
+                    <span className="small text-muted fw-bold d-block mb-1">MoMo Callback Payload (DEV):</span>
+                    <pre className="bg-light p-3 rounded text-start border small overflow-auto" style={{ maxHeight: '200px', fontFamily: 'monospace' }}>
+                      {JSON.stringify(paymentResult.payload, null, 2)}
+                    </pre>
+                  </div>
+                )}
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary rounded-3" onClick={() => setPaymentResult(null)}>
