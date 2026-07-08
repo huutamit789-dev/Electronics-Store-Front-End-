@@ -186,7 +186,7 @@ export const CouponManagementPage: React.FC = () => {
       <Toaster position="top-right" />
 
       {/* Page Header */}
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <div>
           <h2 className="fw-bold text-gray-800 mb-0 fs-4">
             <i className="bi bi-ticket-perforated-fill text-danger me-2"></i>
@@ -195,7 +195,7 @@ export const CouponManagementPage: React.FC = () => {
           <p className="text-secondary small mt-1 mb-0">Tạo, xem và quản lý tất cả mã khuyến mãi trong hệ thống.</p>
         </div>
         <button
-          className="btn btn-danger rounded-3 fw-bold px-4 py-2 shadow-sm d-flex align-items-center gap-2"
+          className="btn btn-danger rounded-3 fw-bold px-4 py-2 shadow-sm d-flex align-items-center gap-2 flex-shrink-0"
           onClick={() => { setShowForm(prev => !prev); setForm(initialForm); }}
         >
           <i className={`bi ${showForm ? 'bi-x-circle' : 'bi-plus-circle-fill'}`}></i>
@@ -213,7 +213,7 @@ export const CouponManagementPage: React.FC = () => {
             <form onSubmit={handleCreate}>
               <div className="row g-3">
                 {/* Mã coupon */}
-                <div className="col-md-4">
+                <div className="col-12 col-md-6 col-lg-4">
                   <label className="form-label fw-semibold small text-secondary">Mã giảm giá *</label>
                   <input
                     type="text"
@@ -227,7 +227,7 @@ export const CouponManagementPage: React.FC = () => {
                 </div>
 
                 {/* Loại giảm */}
-                <div className="col-md-4">
+                <div className="col-12 col-md-6 col-lg-4">
                   <label className="form-label fw-semibold small text-secondary">Loại giảm giá *</label>
                   <select
                     name="discount_type"
@@ -241,7 +241,7 @@ export const CouponManagementPage: React.FC = () => {
                 </div>
 
                 {/* Giá trị giảm */}
-                <div className="col-md-4">
+                <div className="col-12 col-md-6 col-lg-4">
                   <label className="form-label fw-semibold small text-secondary">
                     Giá trị giảm * {form.discount_type === 'percentage' ? '(%)' : '(VNĐ)'}
                   </label>
@@ -258,7 +258,7 @@ export const CouponManagementPage: React.FC = () => {
                 </div>
 
                 {/* Giá trị đơn hàng tối thiểu */}
-                <div className="col-md-4">
+                <div className="col-12 col-md-6 col-lg-4">
                   <label className="form-label fw-semibold small text-secondary">Đơn hàng tối thiểu (VNĐ)</label>
                   <input
                     type="number"
@@ -273,7 +273,7 @@ export const CouponManagementPage: React.FC = () => {
 
                 {/* Giảm tối đa (chỉ áp dụng cho % ) */}
                 {form.discount_type === 'percentage' && (
-                  <div className="col-md-4">
+                  <div className="col-12 col-md-6 col-lg-4">
                     <label className="form-label fw-semibold small text-secondary">Giảm tối đa (VNĐ)</label>
                     <input
                       type="number"
@@ -288,7 +288,7 @@ export const CouponManagementPage: React.FC = () => {
                 )}
 
                 {/* Ngày hết hạn */}
-                <div className="col-md-4">
+                <div className="col-12 col-md-6 col-lg-4">
                   <label className="form-label fw-semibold small text-secondary">Ngày hết hạn *</label>
                   <input
                     type="datetime-local"
@@ -301,7 +301,7 @@ export const CouponManagementPage: React.FC = () => {
                 </div>
 
                 {/* Số lượt dùng tối đa */}
-                <div className="col-md-4">
+                <div className="col-12 col-md-6 col-lg-4">
                   <label className="form-label fw-semibold small text-secondary">Số lượt dùng tối đa</label>
                   <input
                     type="number"
@@ -315,15 +315,15 @@ export const CouponManagementPage: React.FC = () => {
                 </div>
               </div>
 
-              <div className="mt-4 d-flex gap-2">
-                <button type="submit" className="btn btn-danger rounded-3 px-4 fw-bold" disabled={submitting}>
+              <div className="mt-4 d-flex flex-column flex-md-row gap-2">
+                <button type="submit" className="btn btn-danger rounded-3 px-4 fw-bold flex-shrink-0" disabled={submitting}>
                   {submitting ? (
                     <><span className="spinner-border spinner-border-sm me-2"></span>Đang tạo...</>
                   ) : (
                     <><i className="bi bi-check-circle me-2"></i>Tạo mã giảm giá</>
                   )}
                 </button>
-                <button type="button" className="btn btn-light rounded-3 px-4 fw-semibold border" onClick={() => { setShowForm(false); setForm(initialForm); }}>
+                <button type="button" className="btn btn-light rounded-3 px-4 fw-semibold border flex-shrink-0" onClick={() => { setShowForm(false); setForm(initialForm); }}>
                   Hủy
                 </button>
               </div>
@@ -414,25 +414,25 @@ export const CouponManagementPage: React.FC = () => {
       {/* Summary stats */}
       {coupons.length > 0 && (
         <div className="row g-3 mt-3">
-          <div className="col-md-3">
+          <div className="col-12 col-md-6 col-lg-3">
             <div className="card border-0 rounded-4 p-3 text-center text-white" style={{ background: 'linear-gradient(135deg, #28a745, #20c997)' }}>
               <div className="fw-bold fs-4">{coupons.filter(c => c.is_active && !isExpired(c.expiration_date) && (c.max_uses === null || c.uses_count < c.max_uses)).length}</div>
               <div className="small opacity-90 mt-1">Mã đang hoạt động</div>
             </div>
           </div>
-          <div className="col-md-3">
+          <div className="col-12 col-md-6 col-lg-3">
             <div className="card border-0 rounded-4 p-3 text-center text-white" style={{ background: 'linear-gradient(135deg, #dc3545, #e83e5c)' }}>
               <div className="fw-bold fs-4">{coupons.filter(c => isExpired(c.expiration_date)).length}</div>
               <div className="small opacity-90 mt-1">Mã đã hết hạn</div>
             </div>
           </div>
-          <div className="col-md-3">
+          <div className="col-12 col-md-6 col-lg-3">
             <div className="card border-0 rounded-4 p-3 text-center text-dark" style={{ background: 'linear-gradient(135deg, #ffc107, #ffdb4d)' }}>
               <div className="fw-bold fs-4">{coupons.filter(c => c.max_uses !== null && c.uses_count >= c.max_uses).length}</div>
               <div className="small mt-1" style={{ opacity: 0.75 }}>Mã đã hết lượt</div>
             </div>
           </div>
-          <div className="col-md-3">
+          <div className="col-12 col-md-6 col-lg-3">
             <div className="card border-0 rounded-4 p-3 text-center text-white" style={{ background: 'linear-gradient(135deg, #0dcaf0, #0da5cc)' }}>
               <div className="fw-bold fs-4">{coupons.reduce((sum, c) => sum + c.uses_count, 0)}</div>
               <div className="small opacity-90 mt-1">Tổng lượt đã dùng</div>

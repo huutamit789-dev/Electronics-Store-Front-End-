@@ -297,15 +297,12 @@ console.log("pruct filter", products)
   return (
     <>
       <Toaster /> {/* Component Toaster để hiển thị các toast */}
-      <h1 className="h3 mb-4 text-gray-800">Quản lý Sản phẩm</h1>
-      <div className="d-flex justify-content-between mb-3">
-        <div>
-          <button type="button" className="btn btn-primary me-2" onClick={handleAddProduct}>
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+        <h1 className="h3 text-gray-800 mb-0">Quản lý Sản phẩm</h1>
+        <div className="d-flex gap-2">
+          <button type="button" className="btn btn-primary flex-shrink-0" onClick={handleAddProduct}>
             <i className="fas fa-plus me-2"></i> Thêm sản phẩm mới
           </button>
-          {/* <button type="button" className="btn btn-danger" onClick={handleLogout}> // Đã di chuyển sang AdminDashboardPage
-            <i className="fas fa-sign-out-alt me-2"></i> Đăng xuất
-          </button> */}
         </div>
       </div>
 
@@ -315,7 +312,7 @@ console.log("pruct filter", products)
         </div>
         <div className="card-body">
           <div className="row mb-3">
-            <div className="col-md-4 ms-auto">
+            <div className="col-12 col-md-4 ms-auto">
               <div className="input-group">
                 <span className="input-group-text"><i className="fas fa-search"></i></span>
                 <input
@@ -369,27 +366,39 @@ console.log("pruct filter", products)
             </table>
           </div>
           {/* Pagination Controls */}
-          <div className="d-flex justify-content-between align-items-center mt-3">
-            <div>
-              Hiển thị {filteredProducts.length} trên {totalProducts} sản phẩm (Trang {currentPage} / {totalPages})
+          <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+            <div className="text-center text-md-start">
+              <small className="d-block d-md-inline">Hiển thị {filteredProducts.length} trên {totalProducts} sản phẩm (Trang {currentPage} / {totalPages})</small>
             </div>
-            <nav>
-              <ul className="pagination mb-0">
+            <nav className="d-flex justify-content-center">
+              <ul className="pagination mb-0 flex-wrap">
                 <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
                   <button className="page-link" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
-                    Previous
+                    <i className="fas fa-chevron-left"></i>
                   </button>
                 </li>
-                {Array.from({ length: totalPages }, (_, i) => (
-                  <li key={i + 1} className={`page-item ${currentPage === i + 1 ? 'active' : ''}`}>
-                    <button className="page-link" onClick={() => handlePageChange(i + 1)}>
-                      {i + 1}
-                    </button>
-                  </li>
-                ))}
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  let pageNum;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <li key={pageNum} className={`page-item ${currentPage === pageNum ? 'active' : ''}`}>
+                      <button className="page-link" onClick={() => handlePageChange(pageNum)}>
+                        {pageNum}
+                      </button>
+                    </li>
+                  );
+                })}
                 <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
                   <button className="page-link" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
-                    Next
+                    <i className="fas fa-chevron-right"></i>
                   </button>
                 </li>
               </ul>

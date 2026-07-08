@@ -10,12 +10,18 @@ interface AdminLayoutProps {
 
 export const AdminLayout: React.FC<AdminLayoutProps> = () => {
   const [sidebarToggled, setSidebarToggled] = useState(false);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const { logout } = useLogout();
   const navigate = useNavigate();
 
   // Hàm để toggle sidebar
   const handleToggleSidebar = () => {
     setSidebarToggled(!sidebarToggled);
+  };
+
+  // Hàm để toggle mobile sidebar
+  const handleMobileSidebarToggle = () => {
+    setMobileSidebarOpen(!mobileSidebarOpen);
   };
 
   // Hàm xử lý đăng xuất
@@ -35,8 +41,24 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
 
   return (
     <div id="wrapper">
+      {/* Mobile Sidebar Overlay */}
+      {mobileSidebarOpen && (
+        <div
+          className="position-fixed d-md-none"
+          style={{
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0,0,0,0.5)',
+            zIndex: 1040
+          }}
+          onClick={handleMobileSidebarToggle}
+        ></div>
+      )}
+
       {/* Sidebar */}
-      <ul className={`navbar-nav bg-gradient-primary sidebar sidebar-dark accordion ${sidebarToggled ? 'toggled' : ''}`} id="accordionSidebar">
+      <ul className={`navbar-nav bg-gradient-primary sidebar sidebar-dark accordion ${sidebarToggled ? 'toggled' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`} id="accordionSidebar" style={{ zIndex: mobileSidebarOpen ? 1050 : 'auto' }}>
         {/* Sidebar - Brand */}
         <Link className="sidebar-brand d-flex align-items-center justify-content-center" to="/admin/dashboard">
           <div className="sidebar-brand-icon rotate-n-15">
@@ -168,15 +190,22 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
         <div className="text-center d-none d-md-inline">
           <button className="rounded-circle border-0" id="sidebarToggle" onClick={handleToggleSidebar}></button>
         </div>
+
+        {/* Mobile Close Button */}
+        <div className="text-center d-md-none mt-3 mb-2">
+          <button className="btn btn-sm btn-light text-primary fw-bold" onClick={handleMobileSidebarToggle}>
+            <i className="fas fa-times me-2"></i>Đóng menu
+          </button>
+        </div>
       </ul>
       <div id="content-wrapper" className="d-flex flex-column">
         {/* Main Content */}
         <div id="content">
           <nav className="navbar navbar-expand navbar-light bg-white topbar mb-4 static-top shadow">
-            <button id="sidebarToggleTop" className="btn btn-link d-md-none rounded-circle mr-3" onClick={handleToggleSidebar}>
+            <button id="sidebarToggleTop" className="btn btn-link d-md-none rounded-circle mr-3" onClick={handleMobileSidebarToggle}>
               <i className="fa fa-bars"></i>
             </button>
-            <ul className="navbar-nav ml-auto">
+            <ul className="navbar-nav ml-auto flex-wrap">
               {/* Nav Item - Search Dropdown (Visible Only XS) */}
               <li className="nav-item dropdown no-arrow d-sm-none">
                 <a className="nav-link dropdown-toggle" href="#" id="searchDropdown" role="button"

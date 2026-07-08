@@ -86,12 +86,12 @@ export const AdminDashboardPage: React.FC = () => {
   return (
     <>
       <Toaster position="top-right" />
-      <div className="d-flex justify-content-between align-items-center mb-4">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <div>
           <h1 className="h3 text-gray-800 fw-bold mb-1">Báo cáo kinh doanh</h1>
           <p className="text-muted small mb-0">Thống kê số liệu bán hàng và tình trạng vận hành kho thực tế</p>
         </div>
-        <button onClick={handleLogout} className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1 rounded-3 px-3 py-2 fw-semibold">
+        <button onClick={handleLogout} className="btn btn-outline-danger btn-sm d-flex align-items-center gap-1 rounded-3 px-3 py-2 fw-semibold flex-shrink-0">
           <i className="bi bi-box-arrow-right"></i> Đăng xuất
         </button>
       </div>
@@ -196,47 +196,47 @@ export const AdminDashboardPage: React.FC = () => {
 
       <div className="row g-4">
         {/* Biểu đồ doanh thu */}
-        <div className="col-lg-7">
+        <div className="col-lg-7 col-12">
           <RevenueChart data={revenueChart} />
         </div>
 
         {/* Danh sách sản phẩm bán chạy */}
-        <div className="col-lg-5">
+        <div className="col-lg-5 col-12">
           <div className="card shadow-sm border-0 rounded-4 bg-white p-4 h-100">
             <h5 className="card-title fw-bold text-gray-800 mb-3">Top 5 sản phẩm bán chạy</h5>
-            
+
             {topProducts.length > 0 ? (
               <div className="list-group list-group-flush">
                 {topProducts.map((product, index) => (
-                  <div key={product._id} className="list-group-item d-flex align-items-center justify-content-between py-3 px-0 border-0 border-bottom">
-                    <div className="d-flex align-items-center gap-3">
-                      <span className="badge bg-danger rounded-circle d-flex align-items-center justify-content-center fw-bold" style={{ width: '22px', height: '22px', fontSize: '0.75rem' }}>
+                  <div key={product._id} className="list-group-item d-flex align-items-center justify-content-between py-3 px-0 border-0 border-bottom flex-wrap gap-2">
+                    <div className="d-flex align-items-center gap-3 flex-grow-1">
+                      <span className="badge bg-danger rounded-circle d-flex align-items-center justify-content-center fw-bold flex-shrink-0" style={{ width: '22px', height: '22px', fontSize: '0.75rem' }}>
                         {index + 1}
                       </span>
                       {product.image_url ? (
-                        <img 
-                          src={product.image_url} 
-                          alt={product.name} 
-                          className="rounded object-fit-contain bg-light p-1 border" 
-                          style={{ width: '48px', height: '48px' }} 
+                        <img
+                          src={product.image_url}
+                          alt={product.name}
+                          className="rounded object-fit-contain bg-light p-1 border flex-shrink-0"
+                          style={{ width: '48px', height: '48px' }}
                         />
                       ) : (
-                        <div className="rounded bg-light border d-flex align-items-center justify-content-center text-secondary" style={{ width: '48px', height: '48px' }}>
+                        <div className="rounded bg-light border d-flex align-items-center justify-content-center text-secondary flex-shrink-0" style={{ width: '48px', height: '48px' }}>
                           <i className="bi bi-image"></i>
                         </div>
                       )}
-                      <div>
-                        <h6 className="mb-0 fw-semibold text-truncate text-gray-900" style={{ maxWidth: '170px' }}>
+                      <div className="flex-grow-1" style={{ minWidth: '0' }}>
+                        <h6 className="mb-0 fw-semibold text-truncate text-gray-900" style={{ maxWidth: '150px' }} title={product.name}>
                           {product.name}
                         </h6>
                         <small className="text-muted d-block">{product.price.toLocaleString()}đ</small>
                       </div>
                     </div>
-                    <div className="text-end">
-                      <span className="badge bg-success-subtle text-success px-2 py-1 rounded-pill fw-bold" style={{ fontSize: '0.75rem' }}>
+                    <div className="text-end flex-shrink-0">
+                      <span className="badge bg-success-subtle text-success px-2 py-1 rounded-pill fw-bold d-block mb-1" style={{ fontSize: '0.75rem' }}>
                         Đã bán: {product.soldQuantity}
                       </span>
-                      <small className="text-muted d-block mt-1" style={{ fontSize: '0.7rem' }}>
+                      <small className="text-muted d-block" style={{ fontSize: '0.7rem' }}>
                         Còn lại: {product.stock_quantity}
                       </small>
                     </div>
@@ -254,4 +254,4 @@ export const AdminDashboardPage: React.FC = () => {
       </div>
     </>
   );
-};
+};
