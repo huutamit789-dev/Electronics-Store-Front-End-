@@ -1,4 +1,4 @@
-import axiosClient from '@/api/axiosClient';
+import axiosClient from '@/lib/api';
 import { ProductApiResponse, Product } from '@/types/product';
 
 export const productService = {

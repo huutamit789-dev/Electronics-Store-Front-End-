@@ -18,6 +18,7 @@ import { useLogout } from '@/features/auth/hooks/useAuth';
 import { jwtDecode } from 'jwt-decode';
 import toast from 'react-hot-toast';
 import { couponService } from '@/features/coupons/services/couponService';
+import { formatVND } from '@/lib/formatters';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8091/api';
 
@@ -372,7 +373,7 @@ export const CartPage: React.FC = () => {
                             <span className="fw-semibold text-gray-800">{item.productName}</span>
                           </div>
                         </td>
-                        <td className="fw-medium">{item.price.toLocaleString()}đ</td>
+                        <td className="fw-medium">{formatVND(item.price)}</td>
                         <td>
                           <div className="input-group input-group-sm border rounded-3" style={{ maxWidth: '120px' }}>
                             <button className="btn btn-light border-0" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}>
@@ -389,7 +390,7 @@ export const CartPage: React.FC = () => {
                             </button>
                           </div>
                         </td>
-                        <td className="fw-bold text-gray-900">{(item.price * item.quantity).toLocaleString()}đ</td>
+                        <td className="fw-bold text-gray-900">{formatVND(item.price * item.quantity)}</td>
                         <td className="text-center">
                           <button className="btn btn-outline-danger btn-sm rounded-3 border-light-subtle" onClick={() => handleRemoveItem(item.productId)}>
                             <i className="bi bi-trash"></i>
@@ -415,7 +416,7 @@ export const CartPage: React.FC = () => {
                         <img src={item.image_url} alt={item.productName} className="img-thumbnail me-3 rounded-3" style={{ width: '70px', height: '70px', objectFit: 'contain' }} />
                         <div className="flex-grow-1">
                           <h6 className="card-title fw-bold text-gray-800 mb-1" style={{ fontSize: '0.9rem' }}>{item.productName}</h6>
-                          <p className="text-brand-red fw-bold mb-2 small">{item.price.toLocaleString()}đ</p>
+                          <p className="text-brand-red fw-bold mb-2 small">{formatVND(item.price)}</p>
                           <div className="d-flex align-items-center justify-content-between">
                             <div className="input-group input-group-sm border rounded-3" style={{ width: '100px' }}>
                               <button className="btn btn-light border-0" type="button" onClick={() => handleUpdateQuantity(item.productId, item.quantity - 1)}>
@@ -439,7 +440,7 @@ export const CartPage: React.FC = () => {
                       </div>
                       <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top text-gray-800 fw-bold small">
                         <span>Tổng mặt hàng:</span>
-                        <span>{(item.price * item.quantity).toLocaleString()}đ</span>
+                        <span>{formatVND(item.price * item.quantity)}</span>
                       </div>
                     </div>
                   </div>
@@ -480,7 +481,7 @@ export const CartPage: React.FC = () => {
                   {appliedCoupon && (
                     <div className="text-success small mt-1 fw-bold">
                       <i className="bi bi-patch-check-fill me-1"></i>
-                      Đã giảm {appliedCoupon.discount_type === 'percentage' ? `${appliedCoupon.discount_value}%` : `${appliedCoupon.discount_value.toLocaleString()}đ`}
+                      Đã giảm {appliedCoupon.discount_type === 'percentage' ? `${appliedCoupon.discount_value}%` : formatVND(appliedCoupon.discount_value)}
                     </div>
                   )}
                 </div>
@@ -488,13 +489,13 @@ export const CartPage: React.FC = () => {
                 {/* Chi tiết hóa đơn */}
                 <div className="d-flex justify-content-between mb-2 small">
                   <span className="text-secondary">Tạm tính:</span>
-                  <span className="fw-semibold text-dark">{displayTotal.toLocaleString()}đ</span>
+                  <span className="fw-semibold text-dark">{formatVND(displayTotal)}</span>
                 </div>
                 
                 {discountAmount > 0 && (
                   <div className="d-flex justify-content-between mb-2 small text-success fw-semibold">
                     <span>Mã giảm giá:</span>
-                    <span>-{discountAmount.toLocaleString()}đ</span>
+                    <span>-{formatVND(discountAmount)}</span>
                   </div>
                 )}
                 
@@ -502,7 +503,7 @@ export const CartPage: React.FC = () => {
                 
                 <div className="d-flex justify-content-between align-items-center mb-4">
                   <span className="fw-bold text-gray-800">Tổng thanh toán:</span>
-                  <span className="fw-bold text-danger fs-4">{(displayTotal - discountAmount).toLocaleString()}đ</span>
+                  <span className="fw-bold text-danger fs-4">{formatVND(displayTotal - discountAmount)}</span>
                 </div>
                 
                 <button

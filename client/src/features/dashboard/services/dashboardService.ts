@@ -4,7 +4,7 @@
  * Provides TypeScript interfaces and API handler functions.
  */
 
-import axiosClient from '@/api/axiosClient';
+import axiosClient from '@/lib/api';
 
 export interface DashboardOverviewStats {
   totalRevenue: number;

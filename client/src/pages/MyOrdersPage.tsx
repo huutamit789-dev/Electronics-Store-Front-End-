@@ -11,6 +11,7 @@ import { useLogout } from '@/features/auth/hooks/useAuth';
 import { useCartStore } from '@/store/useCartStore';
 import axios from 'axios';
 import '@/assets/UserHomePage.css';
+import { formatVNDFull } from '@/lib/formatters';
 
 interface OrderItem {
   product_id: {
@@ -356,7 +357,7 @@ export const MyOrdersPage: React.FC = () => {
                       </table>
                     </div>
                     <div className="text-end mt-3">
-                      <strong>Tổng tiền: {order.total_price.toLocaleString()} VNĐ</strong>
+                      <strong>Tổng tiền: {formatVNDFull(order.total_price)}</strong>
                     </div>
                   </div>
                 </div>

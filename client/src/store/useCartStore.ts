@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { CartItem } from '@/types/order';
+import { getCartItems, setCartItems, removeCartItems } from '@/lib/storage';
 
 interface CartState {
   items: CartItem[];
@@ -18,7 +19,7 @@ export const useCartStore = create<CartState>((set, get) => ({
   // Khởi tạo an toàn với try-catch để tránh crash nếu localStorage bị lỗi dữ liệu
   items: (() => {
     try {
-      const stored = localStorage.getItem('cartItems');
+      const stored = getCartItems();
       return stored ? JSON.parse(stored) : [];
     } catch (e) {
       console.error("Lỗi khi đọc giỏ hàng từ localStorage:", e);
@@ -35,13 +36,13 @@ export const useCartStore = create<CartState>((set, get) => ({
         : [...items, item];
 
     set({ items: newItems });
-    localStorage.setItem('cartItems', JSON.stringify(newItems));
+    setCartItems(JSON.stringify(newItems));
   },
 
   removeItem: (productId) => {
     const newItems = get().items.filter(i => i.productId !== productId);
     set({ items: newItems });
-    localStorage.setItem('cartItems', JSON.stringify(newItems));
+    setCartItems(JSON.stringify(newItems));
   },
 
   updateQuantity: (productId, quantity) => {
@@ -69,12 +70,12 @@ export const useCartStore = create<CartState>((set, get) => ({
     );
 
     set({ items: newItems });
-    localStorage.setItem('cartItems', JSON.stringify(newItems));
+    setCartItems(JSON.stringify(newItems));
   },
 
   clearCart: () => {
     set({ items: [] });
-    localStorage.removeItem('cartItems');
+    removeCartItems();
   },
 
   getTotalAmount: () => {

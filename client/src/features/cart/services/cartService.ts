@@ -1,4 +1,4 @@
-import axiosClient from '@/api/axiosClient';
+import axiosClient from '@/lib/api';
 import { Order, CreateOrderRequest } from '@/types/order';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8090';

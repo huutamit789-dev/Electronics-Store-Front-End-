@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { Product, ProductApiResponse } from '@/types/product';
 import axiosClient from "@/api/axiosClient";
-import imageCompression from 'browser-image-compression'; // Import thư viện nén ảnh
-import axios from 'axios'; // Import axios
-import toast, { Toaster } from 'react-hot-toast'; // Import toast và Toaster
+import imageCompression from 'browser-image-compression';
+import axios from 'axios';
+import toast, { Toaster } from 'react-hot-toast';
 import { API_BASE_URL } from '@/config/constants';
+import { formatCurrency, parseCurrency } from '@/lib/formatters';
 
 export const ProductManagementPage: React.FC = () => {
   const [products, setProducts] = useState<Product[]>([]);
@@ -55,19 +56,6 @@ export const ProductManagementPage: React.FC = () => {
     cate_id: ''
   });
 
-  // Helper: format và parse currency (hiển thị dấu phẩy, lưu số nguyên)
-  const formatCurrency = (value: number | string) => {
-    if (value === '' || value === null || value === undefined) return '';
-    const num = Number(String(value).replace(/[^0-9.-]/g, '')) || 0;
-    return num.toLocaleString('en-US');
-  };
-
-  const parseCurrency = (str: string) => {
-    if (!str) return 0;
-    const cleaned = String(str).replace(/,/g, '').replace(/^0+(?=\d)/, '');
-    const num = Number(cleaned);
-    return isNaN(num) ? 0 : num;
-  };
   const [newImageFile, setNewImageFile] = useState<File | null>(null);
   const [editImageFile, setEditImageFile] = useState<File | null>(null);
   const [newImageFiles, setNewImageFiles] = useState<File[]>([]);

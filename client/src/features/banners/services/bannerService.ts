@@ -1,4 +1,4 @@
-import axiosClient from '@/api/axiosClient';
+import axiosClient from '@/lib/api';
 import { API_BASE_URL } from '@/config/constants';
 
 export interface Banner {

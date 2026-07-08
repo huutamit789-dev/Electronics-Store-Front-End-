@@ -30,8 +30,10 @@ export const Footer = () => {
 
   if (!footerData) {
     return (
-      <Layout.Footer style={{ textAlign: 'center' }}>
-        MyStore ©2026 Created by Developer
+      <Layout.Footer style={{ textAlign: 'center', background: '#001529', padding: '40px 50px 20px' }}>
+        <Text style={{ color: '#fff', opacity: 0.6 }}>
+          Chưa có footer được cấu hình. Vui lòng thêm footer từ trang quản trị.
+        </Text>
       </Layout.Footer>
     );
   }

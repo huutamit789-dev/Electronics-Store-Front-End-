@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getToken, getUsername, getRole } from '@/lib/storage';
 
 interface AuthState {
   isLoggedIn: boolean;
@@ -12,17 +13,17 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  isLoggedIn: !!localStorage.getItem('token'),
-  user: localStorage.getItem('username') ? {
-    username: localStorage.getItem('username') || '',
-    role: localStorage.getItem('role') || undefined
+  isLoggedIn: !!getToken(),
+  user: getUsername() ? {
+    username: getUsername() || '',
+    role: getRole() || undefined
   } : null,
   setIsLoggedIn: (status) => set({ isLoggedIn: status }),
   setUser: (user) => set({ user }),
   checkAuth: () => {
-    const token = localStorage.getItem('token');
-    const username = localStorage.getItem('username');
-    const role = localStorage.getItem('role');
+    const token = getToken();
+    const username = getUsername();
+    const role = getRole();
 
     set({
       isLoggedIn: !!token,

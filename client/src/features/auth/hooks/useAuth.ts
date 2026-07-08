@@ -4,7 +4,8 @@ import { useAuthStore } from '@/store/useAuthStore';
 import toast from 'react-hot-toast';
 import { useNavigate } from 'react-router-dom';
 import { jwtDecode } from 'jwt-decode';
-import {useCartStore} from "@/store/useCartStore";
+import { useCartStore } from "@/store/useCartStore";
+import { setToken, setUsername, setRole, clearAuthData, removeCartItems } from '@/lib/storage';
 
 interface DecodedToken {
   role?: string;
@@ -21,8 +22,8 @@ export const useLogin = () => {
   return useMutation({
     mutationFn: authService.login,
     onSuccess: (data, variables, context) => {
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('username', data.user.username);
+      setToken(data.token);
+      setUsername(data.user.username);
       setIsLoggedIn(true);
       toast.success("Đăng nhập thành công!");
 
@@ -33,7 +34,7 @@ export const useLogin = () => {
         
         // Store role in localStorage and auth store
         if (role) {
-          localStorage.setItem('role', role);
+          setRole(role);
           setUser({
             username: data.user.username,
             role: role
@@ -85,10 +86,8 @@ export const useLogout = () => {
 
   const logout = () => {
     // Xóa tất cả các key liên quan đến auth
-    localStorage.removeItem('token');
-    localStorage.removeItem('username');
-    localStorage.removeItem('role');
-    localStorage.removeItem('cartItems');
+    clearAuthData();
+    removeCartItems();
     useCartStore.getState().clearCart();
     setIsLoggedIn(false);
     setUser(null);

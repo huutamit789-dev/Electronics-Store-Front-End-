@@ -18,6 +18,7 @@ import { useLogout } from '@/features/auth/hooks/useAuth';
 import { useCartStore } from '@/store/useCartStore';
 import { useCart } from '@/contexts/CartContext';
 import { CartItem } from '@/types/order';
+import { formatVND } from '@/lib/formatters';
 import '@/assets/UserHomePage.css';
 // Import local images
 import iphone1 from '@/assets/images/iphone-17-pro-max-3.webp';
@@ -618,7 +619,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
                     <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
                       <img src={product.image_url} className="card-img-top rounded-3 object-fit-contain mb-3" height="180" alt={product.name} />
                       <h6 className="fw-semibold text-truncate">{product.name}</h6>
-                      <div className="text-brand-red fw-bold fs-5 mb-3">{product.price.toLocaleString()}đ</div>
+                      <div className="text-brand-red fw-bold fs-5 mb-3">{formatVND(product.price)}</div>
                     </Link>
                     <button className="btn btn-light border w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red transition" onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}>
                       Thêm vào giỏ

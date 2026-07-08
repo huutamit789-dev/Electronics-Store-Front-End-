@@ -3,7 +3,7 @@
  * @description Frontend service to communicate with backend coupon validation API.
  */
 
-import axiosClient from '@/api/axiosClient';
+import axiosClient from '@/lib/api';
 
 export interface CouponVerifyData {
   code: string;

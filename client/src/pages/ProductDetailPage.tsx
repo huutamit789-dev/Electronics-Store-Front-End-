@@ -11,6 +11,7 @@ import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
 import { CustomerReviews } from '@/components/reviews/CustomerReviews';
 import { API_BASE_URL } from '@/config/constants';
+import { formatVND } from '@/lib/formatters';
 
 // Định nghĩa kiểu dữ liệu cho Product Detail API Response
 interface ProductDetailApiResponse {
@@ -621,8 +622,8 @@ export const ProductDetailPage: React.FC = () => {
               <div className="d-flex align-items-center gap-2">
                 <span className="price-current">
                   {product.variants && product.variants.length > 0 && selectedVariant >= 0
-                    ? product.variants[selectedVariant].price.toLocaleString()
-                    : product.price.toLocaleString()}₫
+                    ? formatVND(product.variants[selectedVariant].price)
+                    : formatVND(product.price)}
                 </span>
                 {/* Giả định có original_price để hiển thị giá cũ */}
                 {/* <span className="price-old">31.990.000₫</span> */}
@@ -796,7 +797,7 @@ export const ProductDetailPage: React.FC = () => {
                           alt={relatedProduct.name} 
                         />
                         <h6 className="fw-semibold text-truncate">{relatedProduct.name}</h6>
-                        <div className="text-brand-red fw-bold fs-5 mb-3">{relatedProduct.price.toLocaleString()}đ</div>
+                        <div className="text-brand-red fw-bold fs-5 mb-3">{formatVND(relatedProduct.price)}</div>
                       </Link>
                       <button 
                         className="btn btn-light border w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red transition" 
