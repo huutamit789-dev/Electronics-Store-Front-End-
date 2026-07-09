@@ -427,34 +427,52 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
         <section className="row g-3 mb-5">
           <div className="col-md-6">
             <div className="card border-0 rounded-4 premium-shadow img-zoom-container h-100 text-white cursor-pointer overflow-hidden">
-              <img 
-                src={banners.find(b => b.position === 'main')?.image_url} 
-                className="card-img h-100 object-fit-cover" 
-                alt="Main Banner" 
-                style={{ minHeight: '350px',height: '360px' }} 
-              />
+              {banners.find(b => b.position === 'main')?.image_url ? (
+                <img 
+                  src={banners.find(b => b.position === 'main')?.image_url} 
+                  className="card-img h-100 object-fit-cover" 
+                  alt="Main Banner" 
+                  style={{ minHeight: '350px',height: '360px' }} 
+                />
+              ) : (
+                <div className="card-img h-100 d-flex align-items-center justify-content-center bg-light" style={{ minHeight: '350px', height: '360px' }}>
+                  <i className="bi bi-image fs-1 text-muted"></i>
+                </div>
+              )}
               <div className="card-img-overlay d-flex flex-column justify-content-end p-4" style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.8), transparent)' }}>
-                <h2 className="card-title fw-bold">{banners.find(b => b.position === 'main')?.title}</h2>
-                <p className="card-text text-light">{banners.find(b => b.position === 'main')?.description}</p>
+                <h2 className="card-title fw-bold">{banners.find(b => b.position === 'main')?.title || 'Banner chính'}</h2>
+                <p className="card-text text-light">{banners.find(b => b.position === 'main')?.description || ''}</p>
               </div>
             </div>
           </div>
           <div className="col-md-6 d-flex flex-column gap-3">
             <div className="card border-0 rounded-4 premium-shadow img-zoom-container flex-grow-1 cursor-pointer overflow-hidden">
-              <img 
-                src={banners.find(b => b.position === 'sub1')?.image_url} 
-                className="card-img h-100 object-fit-cover" 
-                alt="Sub Banner 1" 
-                style={{ height: '174px' }} 
-              />
+              {banners.find(b => b.position === 'sub1')?.image_url ? (
+                <img 
+                  src={banners.find(b => b.position === 'sub1')?.image_url} 
+                  className="card-img h-100 object-fit-cover" 
+                  alt="Sub Banner 1" 
+                  style={{ height: '174px' }} 
+                />
+              ) : (
+                <div className="card-img h-100 d-flex align-items-center justify-content-center bg-light" style={{ height: '174px' }}>
+                  <i className="bi bi-image fs-1 text-muted"></i>
+                </div>
+              )}
             </div>
             <div className="card border-0 rounded-4 premium-shadow img-zoom-container flex-grow-1 cursor-pointer overflow-hidden">
-              <img 
-                src={banners.find(b => b.position === 'sub2')?.image_url} 
-                className="card-img h-100 object-fit-cover" 
-                alt="Sub Banner 2" 
-                style={{ height: '174px' }}
-              />
+              {banners.find(b => b.position === 'sub2')?.image_url ? (
+                <img 
+                  src={banners.find(b => b.position === 'sub2')?.image_url} 
+                  className="card-img h-100 object-fit-cover" 
+                  alt="Sub Banner 2" 
+                  style={{ height: '174px' }}
+                />
+              ) : (
+                <div className="card-img h-100 d-flex align-items-center justify-content-center bg-light" style={{ height: '174px' }}>
+                  <i className="bi bi-image fs-1 text-muted"></i>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -617,7 +635,13 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
                 <div className="col" key={product._id}>
                   <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column bg-white">
                     <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
-                      <img src={product.image_url} className="card-img-top rounded-3 object-fit-contain mb-3" height="180" alt={product.name} />
+                      {product.image_url ? (
+                        <img src={product.image_url} className="card-img-top rounded-3 object-fit-contain mb-3" height="180" alt={product.name} />
+                      ) : (
+                        <div className="card-img-top rounded-3 mb-3 d-flex align-items-center justify-content-center bg-light" style={{ height: '180px' }}>
+                          <i className="bi bi-image fs-1 text-muted"></i>
+                        </div>
+                      )}
                       <h6 className="fw-semibold text-truncate">{product.name}</h6>
                       <div className="text-brand-red fw-bold fs-5 mb-3">{formatVND(product.price)}</div>
                     </Link>

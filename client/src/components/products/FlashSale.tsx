@@ -133,12 +133,18 @@ export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => 
                     <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1 d-flex flex-column">
 
                       <div className="position-relative mb-3">
-                        <img
-                          src={product.image_url}
-                          className="w-100 rounded-3"
-                          style={{ height: '150px', objectFit: 'contain' }}
-                          alt={product.name}
-                        />
+                        {product.image_url ? (
+                          <img
+                            src={product.image_url}
+                            className="w-100 rounded-3"
+                            style={{ height: '150px', objectFit: 'contain' }}
+                            alt={product.name}
+                          />
+                        ) : (
+                          <div className="w-100 rounded-3 d-flex align-items-center justify-content-center bg-light" style={{ height: '150px' }}>
+                            <i className="bi bi-image fs-1 text-muted"></i>
+                          </div>
+                        )}
                         <span className="badge bg-danger position-absolute top-0 start-0 m-2 px-2 py-1 shadow-sm">
                           -15%
                         </span>

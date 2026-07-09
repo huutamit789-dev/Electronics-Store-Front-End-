@@ -191,7 +191,15 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({
    * @description Fallback handler when the product image url is broken.
    */
   const handleImageError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
-    e.currentTarget.src = '/images/default-product.png';
+    e.currentTarget.style.display = 'none';
+    const parent = e.currentTarget.parentElement;
+    if (parent) {
+      const placeholder = document.createElement('div');
+      placeholder.className = 'w-100 rounded-3 d-flex align-items-center justify-content-center bg-light';
+      placeholder.style.height = '170px';
+      placeholder.innerHTML = '<i className="bi bi-image fs-1 text-muted"></i>';
+      parent.insertBefore(placeholder, e.currentTarget);
+    }
   };
 
   const categoryName = categories.find(c => c._id === categoryId)?.name || 'Tất cả sản phẩm';

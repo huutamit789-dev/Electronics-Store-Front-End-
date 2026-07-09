@@ -485,21 +485,27 @@ export const ProductDetailPage: React.FC = () => {
               className="card p-3 border-0 shadow-sm rounded-4 position-relative overflow-hidden"
               onMouseLeave={handleImageMouseLeave}
             >
-              <img 
-                src={selectedImage || product.image_url} 
-                className="img-fluid rounded-3"
-                alt={product.name} 
-                style={{ 
-                  maxHeight: '500px', 
-                  objectFit: 'contain',
-                  transform: isZoomed ? 'scale(2)' : 'scale(1)',
-                  transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
-                  transition: 'transform 0.3s ease',
-                  cursor: isZoomed ? 'zoom-out' : 'zoom-in'
-                }}
-                onMouseMove={handleImageMouseMove}
-                onMouseEnter={handleImageMouseEnter}
-              />
+              {selectedImage || product.image_url ? (
+                <img 
+                  src={selectedImage || product.image_url} 
+                  className="img-fluid rounded-3"
+                  alt={product.name} 
+                  style={{ 
+                    maxHeight: '500px', 
+                    objectFit: 'contain',
+                    transform: isZoomed ? 'scale(2)' : 'scale(1)',
+                    transformOrigin: `${zoomPosition.x}% ${zoomPosition.y}%`,
+                    transition: 'transform 0.3s ease',
+                    cursor: isZoomed ? 'zoom-out' : 'zoom-in'
+                  }}
+                  onMouseMove={handleImageMouseMove}
+                  onMouseEnter={handleImageMouseEnter}
+                />
+              ) : (
+                <div className="d-flex align-items-center justify-content-center bg-light rounded-3" style={{ height: '500px' }}>
+                  <i className="bi bi-image fs-1 text-muted"></i>
+                </div>
+              )}
               {isZoomed && (
                 <div className="position-absolute bottom-0 start-0 bg-dark bg-opacity-75 text-white px-2 py-1 rounded-top-end small">
                   Di chuột để zoom
