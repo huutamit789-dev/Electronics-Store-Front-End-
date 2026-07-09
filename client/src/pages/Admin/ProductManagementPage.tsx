@@ -25,6 +25,10 @@ export const ProductManagementPage: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
+
+  // States cho bulk upload
+  const [excelFile, setExcelFile] = useState<File | null>(null);
 
   // States cho dữ liệu
   const [currentProduct, setCurrentProduct] = useState<Product>({
@@ -255,12 +259,56 @@ console.log("pruct filter", products)
     setCurrentPage(pageNumber);
   };
 
+  const handleBulkUpload = async () => {
+    try {
+      if (!excelFile) {
+        toast.error('Vui lòng chọn file Excel!');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', excelFile);
+
+      const response = await axiosClient.post(`${API_BASE_URL}/products/bulk/excel`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      setIsBulkUploadModalOpen(false);
+      setExcelFile(null);
+      fetchProducts(currentPage, productsPerPage);
+      
+      const result = response.data.data;
+      if (result.skipped > 0) {
+        toast.success(`${result.message || `Đã thêm ${result.created} sản phẩm, bỏ qua ${result.skipped} sản phẩm trùng`}`);
+      } else {
+        toast.success(`Đã thêm ${result.created} sản phẩm thành công!`);
+      }
+    } catch (err) {
+      console.error('Lỗi khi upload hàng loạt:', err);
+      toast.error('Upload hàng loạt thất bại! Kiểm tra file Excel.');
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const allowedTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+      if (!allowedTypes.includes(file.type) && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        toast.error('Chỉ chấp nhận file Excel (.xlsx, .xls)!');
+        return;
+      }
+      setExcelFile(file);
+    }
+  };
+
   const filteredProducts = products.filter((product) => {
     const keyword = searchTerm.toLowerCase();
     return (
       product.name?.toLowerCase().includes(keyword) ||
       product.description?.toLowerCase().includes(keyword) ||
-      (typeof product.cate_id === 'object' ? product.cate_id.name : String(product.cate_id)).toLowerCase().includes(keyword)
+      (product.cate_id && typeof product.cate_id === 'object' ? product.cate_id.name : String(product.cate_id || '')).toLowerCase().includes(keyword)
     );
   });
 
@@ -287,9 +335,12 @@ console.log("pruct filter", products)
       <Toaster /> {/* Component Toaster để hiển thị các toast */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
         <h1 className="h3 text-gray-800 mb-0">Quản lý Sản phẩm</h1>
-        <div className="d-flex gap-2">
+        <div className="d-flex gap-2 flex-wrap">
           <button type="button" className="btn btn-primary flex-shrink-0" onClick={handleAddProduct}>
             <i className="fas fa-plus me-2"></i> Thêm sản phẩm mới
+          </button>
+          <button type="button" className="btn btn-success flex-shrink-0" onClick={() => setIsBulkUploadModalOpen(true)}>
+            <i className="fas fa-upload me-2"></i> Upload nhiều sản phẩm
           </button>
         </div>
       </div>
@@ -316,37 +367,39 @@ console.log("pruct filter", products)
               </div>
             </div>
           </div>
-          <div className="table-responsive">
-            <table className="table table-bordered" id="dataTable" width="100%" cellSpacing="0">
+          <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
+            <table className="table table-bordered table-striped" id="dataTable" style={{ tableLayout: 'fixed', minWidth: '900px', width: '100%' }}>
               <thead>
                 <tr>
                   <th hidden>ID</th>
-                  <th>Tên sản phẩm</th>
-                  <th>Giá</th>
-                  <th>Số lượng tồn kho</th>
-                  <th>Danh mục</th>
-                  <th>Hình ảnh</th>
-                  <th>Hành động</th>
+                  <th style={{ width: '25%', minWidth: '200px' }}>Tên sản phẩm</th>
+                  <th style={{ width: '12%', minWidth: '100px' }}>Giá</th>
+                  <th style={{ width: '10%', minWidth: '80px' }}>Số lượng</th>
+                  <th style={{ width: '18%', minWidth: '150px' }}>Danh mục</th>
+                  <th style={{ width: '10%', minWidth: '80px' }}>Hình ảnh</th>
+                  <th style={{ width: '15%', minWidth: '120px' }}>Hành động</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredProducts.map((product) => (
                   <tr key={product._id}>
                     <td hidden><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{product._id}</span></td>
-                    <td>{product.name}</td>
+                    <td className="text-truncate" style={{ maxWidth: '0' }} title={product.name}>{product.name}</td>
                     <td>{product.price.toLocaleString()} VNĐ</td>
                     <td>{product.stock_quantity}</td>
-                    <td>{typeof product.cate_id === 'object' ? product.cate_id.name : product.cate_id}</td>
-                    <td>
-                      {product.image_url && <img src={product.image_url} alt={product.name} className="img-thumbnail" style={{ width: '50px', height: '50px', objectFit: 'cover' }} />}
+                    <td className="text-truncate" style={{ maxWidth: '0' }} title={product.cate_id && typeof product.cate_id === 'object' ? product.cate_id.name : product.cate_id}>{product.cate_id && typeof product.cate_id === 'object' ? product.cate_id.name : product.cate_id}</td>
+                    <td className="text-center">
+                      {product.image_url && <img src={product.image_url} alt={product.name} className="img-thumbnail" style={{ width: '40px', height: '40px', objectFit: 'cover' }} />}
                     </td>
-                    <td>
-                      <button type="button" className="btn btn-warning btn-sm me-2" onClick={() => handleEditProduct(product._id)}>
-                        <i className="fas fa-edit"></i> Sửa
-                      </button>
-                      <button type="button" className="btn btn-danger btn-sm" onClick={() => confirmDeleteProduct(product._id)}>
-                        <i className="fas fa-trash"></i> Xóa
-                      </button>
+                    <td className="text-center">
+                      <div className="d-flex gap-1 justify-content-center flex-wrap">
+                        <button type="button" className="btn btn-warning btn-sm" onClick={() => handleEditProduct(product._id)}>
+                          <i className="fas fa-edit"></i>
+                        </button>
+                        <button type="button" className="btn btn-danger btn-sm" onClick={() => confirmDeleteProduct(product._id)}>
+                          <i className="fas fa-trash"></i>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -591,6 +644,49 @@ console.log("pruct filter", products)
             </div>
           </div></div>
         </div>
+      )}
+
+      {/* MODAL UPLOAD HÀNG LOẠT */}
+      {isBulkUploadModalOpen && (
+          <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+            <div className="modal-dialog modal-lg"><div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Upload nhiều sản phẩm từ Excel</h5>
+                <button type="button" className="btn-close" onClick={() => setIsBulkUploadModalOpen(false)}></button>
+              </div>
+              <div className="modal-body">
+                <div className="mb-3">
+                  <label className="form-label fw-bold">Chọn file Excel:</label>
+                  <input
+                    type="file"
+                    className="form-control"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileChange}
+                  />
+                </div>
+                {excelFile && (
+                  <div className="mb-3">
+                    <div className="alert alert-success">
+                      <strong>File đã chọn:</strong> {excelFile.name}
+                    </div>
+                  </div>
+                )}
+                <div className="alert alert-info">
+                  <strong>Hướng dẫn:</strong> Upload file Excel (.xlsx, .xls) với các cột: "Tên sản phẩm" (bắt buộc), "Giá (VNĐ)" (bắt buộc), "Danh mục" (bắt buộc), "Mô tả" (tùy chọn), "Số lượng tồn" (tùy chọn), "Đường dẫn ảnh (URL)" (tùy chọn). Giá có thể dùng định dạng có dấu chấm phân cách (ví dụ: 25.000.000).
+                </div>
+                <div className="alert alert-secondary">
+                  <strong>Ví dụ cấu trúc file Excel:</strong><br/>
+                  | Tên sản phẩm | Giá (VNĐ) | Danh mục | Mô tả | Số lượng tồn | Đường dẫn ảnh (URL) |<br/>
+                  | iPhone 15 | 25.000.000 | Điện thoại | iPhone 15 128GB | 50 | https://example.com/iphone.jpg |<br/>
+                  | MacBook Pro | 35.000.000 | Laptop | MacBook Pro M3 | 30 | https://example.com/macbook.jpg |
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button className="btn btn-secondary" onClick={() => setIsBulkUploadModalOpen(false)}>Hủy</button>
+                <button className="btn btn-success" onClick={handleBulkUpload} disabled={!excelFile}>Upload</button>
+              </div>
+            </div></div>
+          </div>
       )}
     </>
   );

@@ -27,7 +27,7 @@ export const CategoryManagementPage: React.FC = () => {
 
   // States cho phân trang
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [categoriesPerPage, setCategoriesPerPage] = useState<number>(10); // Số danh mục trên mỗi trang
+  const [categoriesPerPage, setCategoriesPerPage] = useState<number>(20); // Số danh mục trên mỗi trang
   const [totalCategories, setTotalCategories] = useState<number>(0);
   const [totalPages, setTotalPages] = useState<number>(0);
   const [searchTerm, setSearchTerm] = useState<string>('');
@@ -36,10 +36,12 @@ export const CategoryManagementPage: React.FC = () => {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isBulkUploadModalOpen, setIsBulkUploadModalOpen] = useState(false);
 
   // States cho dữ liệu
   const [currentCategory, setCurrentCategory] = useState<Category>({ _id: '', name: '', description: '' });
   const [newCategory, setNewCategory] = useState({ name: '', description: '' });
+  const [excelFile, setExcelFile] = useState<File | null>(null);
 
   useEffect(() => {
     fetchCategories(currentPage, categoriesPerPage);
@@ -113,6 +115,50 @@ export const CategoryManagementPage: React.FC = () => {
     setCurrentPage(pageNumber);
   };
 
+  const handleBulkUpload = async () => {
+    try {
+      if (!excelFile) {
+        toast.error('Vui lòng chọn file Excel!');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', excelFile);
+
+      const response = await axiosClient.post(`${API_BASE_URL}/categories/bulk/excel`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      setIsBulkUploadModalOpen(false);
+      setExcelFile(null);
+      fetchCategories(currentPage, categoriesPerPage);
+      
+      const result = response.data.data;
+      if (result.skipped > 0) {
+        toast.success(`${result.message || `Đã thêm ${result.created} danh mục, bỏ qua ${result.skipped} danh mục trùng`}`);
+      } else {
+        toast.success(`Đã thêm ${result.created} danh mục thành công!`);
+      }
+    } catch (err) {
+      console.error('Lỗi khi upload hàng loạt:', err);
+      toast.error('Upload hàng loạt thất bại! Kiểm tra file Excel.');
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const allowedTypes = ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/vnd.ms-excel'];
+      if (!allowedTypes.includes(file.type) && !file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+        toast.error('Chỉ chấp nhận file Excel (.xlsx, .xls)!');
+        return;
+      }
+      setExcelFile(file);
+    }
+  };
+
   const filteredCategories = categories.filter((cat) => {
     const keyword = searchTerm.toLowerCase();
     return cat.name?.toLowerCase().includes(keyword) || cat.description?.toLowerCase().includes(keyword);
@@ -123,15 +169,25 @@ export const CategoryManagementPage: React.FC = () => {
   return (
       <>
         <Toaster /> {/* Component Toaster để hiển thị các toast */}
-        <h1 className="h3 mb-4 text-gray-800">Quản lý Danh mục</h1>
-        <button className="btn btn-primary mb-3" onClick={() => setIsAddModalOpen(true)}>
-          <i className="fas fa-plus me-2"></i> Thêm danh mục mới
-        </button>
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+          <h1 className="h3 text-gray-800 mb-0">Quản lý Danh mục</h1>
+          <div className="d-flex gap-2 flex-wrap">
+            <button className="btn btn-primary flex-shrink-0" onClick={() => setIsAddModalOpen(true)}>
+              <i className="fas fa-plus me-2"></i> Thêm danh mục mới
+            </button>
+            <button className="btn btn-success flex-shrink-0" onClick={() => setIsBulkUploadModalOpen(true)}>
+              <i className="fas fa-upload me-2"></i> Upload nhiều danh mục
+            </button>
+          </div>
+        </div>
 
         <div className="card shadow mb-4">
+          <div className="card-header py-3">
+            <h6 className="m-0 font-weight-bold text-primary">Danh sách Danh mục</h6>
+          </div>
           <div className="card-body">
             <div className="row mb-3">
-              <div className="col-md-4 ms-auto">
+              <div className="col-12 col-md-4 ms-auto">
                 <div className="input-group">
                   <span className="input-group-text"><i className="fas fa-search"></i></span>
                   <input
@@ -147,27 +203,29 @@ export const CategoryManagementPage: React.FC = () => {
                 </div>
               </div>
             </div>
-            <div className="table-responsive">
-              <table className="table table-bordered">
+            <div className="table-responsive" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
+              <table className="table table-bordered table-striped" style={{ tableLayout: 'fixed', minWidth: '600px', width: '100%' }}>
                 <thead>
                 <tr>
-                  <th>Tên danh mục</th>
-                  <th>Mô tả</th>
-                  <th>Hành động</th>
+                  <th style={{ width: '35%', minWidth: '200px' }}>Tên danh mục</th>
+                  <th style={{ width: '50%', minWidth: '300px' }}>Mô tả</th>
+                  <th style={{ width: '15%', minWidth: '100px' }}>Hành động</th>
                 </tr>
                 </thead>
                 <tbody>
                 {filteredCategories.map((cat) => (
                     <tr key={cat._id}>
-                      <td>{cat.name}</td>
-                      <td>{cat.description}</td>
-                      <td>
-                        <button className="btn btn-warning btn-sm me-2" onClick={() => handleEditClick(cat)}>
-                          <i className="fas fa-edit"></i> Sửa
-                        </button>
-                        <button className="btn btn-danger btn-sm" onClick={() => confirmDelete(cat)}>
-                          <i className="fas fa-trash"></i> Xóa
-                        </button>
+                      <td className="text-truncate" style={{ maxWidth: '0' }} title={cat.name}>{cat.name}</td>
+                      <td className="text-truncate" style={{ maxWidth: '0' }} title={cat.description}>{cat.description}</td>
+                      <td className="text-center">
+                        <div className="d-flex gap-1 justify-content-center flex-wrap">
+                          <button className="btn btn-warning btn-sm" onClick={() => handleEditClick(cat)}>
+                            <i className="fas fa-edit"></i>
+                          </button>
+                          <button className="btn btn-danger btn-sm" onClick={() => confirmDelete(cat)}>
+                            <i className="fas fa-trash"></i>
+                          </button>
+                        </div>
                       </td>
                     </tr>
                 ))}
@@ -175,27 +233,39 @@ export const CategoryManagementPage: React.FC = () => {
               </table>
             </div>
             {/* Pagination Controls */}
-            <div className="d-flex justify-content-between align-items-center mt-3">
-              <div>
-                Hiển thị {filteredCategories.length} trên {totalCategories} danh mục (Trang {currentPage} / {totalPages})
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mt-3 gap-2">
+              <div className="text-center text-md-start">
+                <small className="d-block d-md-inline">Hiển thị {filteredCategories.length} trên {totalCategories} danh mục (Trang {currentPage} / {totalPages})</small>
               </div>
-              <nav>
-                <ul className="pagination mb-0">
+              <nav className="d-flex justify-content-center">
+                <ul className="pagination mb-0 flex-wrap">
                   <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
                     <button className="page-link" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage === 1}>
-                      Previous
+                      <i className="fas fa-chevron-left"></i>
                     </button>
                   </li>
-                  {Array.from({ length: totalPages }, (_, i) => (
-                      <li key={i + 1} className={`page-item ${currentPage === i + 1 ? 'active' : ''}`}>
-                        <button className="page-link" onClick={() => handlePageChange(i + 1)}>
-                          {i + 1}
+                  {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                    let pageNum;
+                    if (totalPages <= 5) {
+                      pageNum = i + 1;
+                    } else if (currentPage <= 3) {
+                      pageNum = i + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNum = totalPages - 4 + i;
+                    } else {
+                      pageNum = currentPage - 2 + i;
+                    }
+                    return (
+                      <li key={pageNum} className={`page-item ${currentPage === pageNum ? 'active' : ''}`}>
+                        <button className="page-link" onClick={() => handlePageChange(pageNum)}>
+                          {pageNum}
                         </button>
                       </li>
-                  ))}
+                    );
+                  })}
                   <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
                     <button className="page-link" onClick={() => handlePageChange(currentPage + 1)} disabled={currentPage === totalPages}>
-                      Next
+                      <i className="fas fa-chevron-right"></i>
                     </button>
                   </li>
                 </ul>
@@ -247,6 +317,49 @@ export const CategoryManagementPage: React.FC = () => {
                 <div className="modal-footer">
                   <button className="btn btn-secondary" onClick={() => setIsDeleteModalOpen(false)}>Hủy</button>
                   <button className="btn btn-danger" onClick={handleDelete}>Xóa</button>
+                </div>
+              </div></div>
+            </div>
+        )}
+
+        {/* MODAL UPLOAD HÀNG LOẠT */}
+        {isBulkUploadModalOpen && (
+            <div className="modal d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+              <div className="modal-dialog modal-lg"><div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">Upload nhiều danh mục từ Excel</h5>
+                  <button type="button" className="btn-close" onClick={() => setIsBulkUploadModalOpen(false)}></button>
+                </div>
+                <div className="modal-body">
+                  <div className="mb-3">
+                    <label className="form-label fw-bold">Chọn file Excel:</label>
+                    <input
+                      type="file"
+                      className="form-control"
+                      accept=".xlsx,.xls"
+                      onChange={handleFileChange}
+                    />
+                  </div>
+                  {excelFile && (
+                    <div className="mb-3">
+                      <div className="alert alert-success">
+                        <strong>File đã chọn:</strong> {excelFile.name}
+                      </div>
+                    </div>
+                  )}
+                  <div className="alert alert-info">
+                    <strong>Hướng dẫn:</strong> Upload file Excel (.xlsx, .xls) với các cột: "name" hoặc "Tên" (bắt buộc), "description" hoặc "Mô tả" (tùy chọn).
+                  </div>
+                  <div className="alert alert-secondary">
+                    <strong>Ví dụ cấu trúc file Excel:</strong><br/>
+                    | name | description |<br/>
+                    | Điện thoại | Các loại điện thoại di động |<br/>
+                    | Laptop | Máy tính xách tay |
+                  </div>
+                </div>
+                <div className="modal-footer">
+                  <button className="btn btn-secondary" onClick={() => setIsBulkUploadModalOpen(false)}>Hủy</button>
+                  <button className="btn btn-success" onClick={handleBulkUpload} disabled={!excelFile}>Upload</button>
                 </div>
               </div></div>
             </div>

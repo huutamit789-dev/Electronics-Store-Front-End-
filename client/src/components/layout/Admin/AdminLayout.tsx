@@ -40,7 +40,18 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
   }, [sidebarToggled]);
 
   return (
-    <div id="wrapper">
+    <>
+      <style>
+        {`
+          @media (max-width: 768px) {
+            #accordionSidebar.mobile-open {
+              overflow-y: auto !important;
+              max-height: 100vh !important;
+            }
+          }
+        `}
+      </style>
+      <div id="wrapper">
       {/* Mobile Sidebar Overlay */}
       {mobileSidebarOpen && (
         <div
@@ -58,7 +69,13 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
       )}
 
       {/* Sidebar */}
-      <ul className={`navbar-nav bg-gradient-primary sidebar sidebar-dark accordion ${sidebarToggled ? 'toggled' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`} id="accordionSidebar" style={{ zIndex: mobileSidebarOpen ? 1050 : 'auto' }}>
+      <ul 
+        className={`navbar-nav bg-gradient-primary sidebar sidebar-dark accordion ${sidebarToggled ? 'toggled' : ''} ${mobileSidebarOpen ? 'mobile-open' : ''}`} 
+        id="accordionSidebar" 
+        style={{ 
+          zIndex: mobileSidebarOpen ? 1050 : 'auto'
+        }}
+      >
         {/* Sidebar - Brand */}
         <Link className="sidebar-brand d-flex align-items-center justify-content-center" to="/admin/dashboard">
           <div className="sidebar-brand-icon rotate-n-15">
@@ -341,5 +358,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
         </footer>
       </div>
     </div>
+    </>
   );
 };
