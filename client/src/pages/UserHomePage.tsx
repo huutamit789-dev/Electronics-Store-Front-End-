@@ -151,15 +151,22 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   const fetchCategories = useCallback(async () => {
     try {
       const categoriesResponse = await axios.get<CategoryApiResponse>(`${API_BASE_URL}/categories`);
-      setCategories(categoriesResponse.data.data.categories);
+      setCategories(categoriesResponse.data.data.categories || []);
     } catch (err) {
+      console.error('Failed to fetch categories:', err);
       setError('Failed to fetch categories. Please try again later.');
+      setCategories([]); // Set empty array on error
     }
   }, []);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
   useEffect(() => { fetchAllProducts(); }, [fetchAllProducts]);
+
+  // Set loading to false when categories are loaded (even if empty)
+  useEffect(() => {
+    setLoading(false);
+  }, [categories]);
 
   // Không cần fetchProducts ở đây nữa vì CategoryProducts tự lắng nghe các thay đổi để tự tải lại sản phẩm
 
@@ -287,7 +294,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
     checkLoginStatus();
   };
 
-  if (categories.length === 0) {
+  if (loading) {
     return (
       <div className="d-flex flex-column min-vh-100 bg-light text-dark justify-content-center align-items-center">
         <div className="spinner-border text-danger" role="status"><span className="visually-hidden">Loading...</span></div>
