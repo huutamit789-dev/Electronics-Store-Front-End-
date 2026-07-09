@@ -70,6 +70,9 @@ export const UserHomePage: React.FC = () => {
   const [storage, setStorage] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
   const [featuredIndex, setFeaturedIndex] = useState(0);
+  const [featuredCarouselDirection, setFeaturedCarouselDirection] = useState<'left' | 'right' | null>(null);
+  const [featuredIsAnimating, setFeaturedIsAnimating] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   // Debounce tìm kiếm để tránh gửi request liên tục lên backend khi người dùng đang gõ
   useEffect(() => {
@@ -78,6 +81,27 @@ export const UserHomePage: React.FC = () => {
     }, 400);
     return () => clearTimeout(handler);
   }, [searchQuery]);
+
+  // Show/hide back to top button on scroll
+  useEffect(() => {
+    const handleScroll = () => {
+      if (window.scrollY > 300) {
+        setShowBackToTop(true);
+      } else {
+        setShowBackToTop(false);
+      }
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'smooth'
+    });
+  };
 
 const categoryScrollRef = useRef<HTMLDivElement>(null);
 
@@ -92,16 +116,27 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
     }
   };
 
-  // Carousel functions for featured products
-  const featuredItemsPerPage = 10; // Changed from 4 to 10
-  const featuredTotalSlides = Math.ceil(allProducts.length / featuredItemsPerPage);
+  // Pagination for featured products
+  const featuredItemsPerPage = 8;
+  const featuredTotalPages = Math.ceil(allProducts.length / featuredItemsPerPage);
 
-  const nextFeaturedSlide = () => {
-    setFeaturedIndex((prev) => (prev + 1) % featuredTotalSlides);
-  };
-
-  const prevFeaturedSlide = () => {
-    setFeaturedIndex((prev) => (prev - 1 + featuredTotalSlides) % featuredTotalSlides);
+  const handleFeaturedPageChange = (page: number) => {
+    if (page > 0 && page <= featuredTotalPages && !featuredIsAnimating) {
+      const newFeaturedIndex = page - 1;
+      if (newFeaturedIndex > featuredIndex) {
+        setFeaturedCarouselDirection('right');
+      } else if (newFeaturedIndex < featuredIndex) {
+        setFeaturedCarouselDirection('left');
+      }
+      
+      setFeaturedIsAnimating(true);
+      setFeaturedIndex(newFeaturedIndex);
+      
+      setTimeout(() => {
+        setFeaturedIsAnimating(false);
+        setFeaturedCarouselDirection(null);
+      }, 300);
+    }
   };
 
   const getFeaturedProducts = () => {
@@ -315,7 +350,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
     <div className="d-flex flex-column min-vh-100 bg-light">
       
       {/* Header (Màu đỏ CellphoneS) */}
-      <header className="bg-brand-red text-white sticky-top shadow-sm py-2 z-3">
+      <header className="bg-brand-red text-white sticky-top shadow-sm py-2" style={{ zIndex: 1000 }}>
         <div className="container d-flex align-items-center gap-4">
           <Link to="/" onClick={handleLogoClick} className="fs-4 fw-bold fst-italic d-flex align-items-center gap-1 cursor-pointer text-white text-decoration-none">
             <i className="bi bi-phone text-warning" style={{ transform: 'rotate(-15deg)' }}></i> ElectroStore
@@ -338,7 +373,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
                 {(isLoggedIn && cart?.items 
                   ? cart.items.reduce((sum, item) => sum + item.quantity, 0)
                   : getCountUniqueItems()) > 0 && (
-                  <span className="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem'}}>
+                  <span className="position-absolute badge rounded-pill bg-warning text-dark" style={{fontSize: '0.6rem', right: '-10px', top: '-8px', minWidth: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '0'}}>
                     {isLoggedIn && cart?.items 
                       ? cart.items.reduce((sum, item) => sum + item.quantity, 0)
                       : getCountUniqueItems()}
@@ -439,10 +474,10 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
                   src={banners.find(b => b.position === 'main')?.image_url} 
                   className="card-img h-100 object-fit-cover" 
                   alt="Main Banner" 
-                  style={{ minHeight: '350px',height: '360px' }} 
+                  style={{ minHeight: '250px', height: '280px', width: '100%', objectFit: 'cover' }} 
                 />
               ) : (
-                <div className="card-img h-100 d-flex align-items-center justify-content-center bg-light" style={{ minHeight: '350px', height: '360px' }}>
+                <div className="card-img h-100 d-flex align-items-center justify-content-center bg-light" style={{ minHeight: '250px', height: '280px' }}>
                   <i className="bi bi-image fs-1 text-muted"></i>
                 </div>
               )}
@@ -459,10 +494,10 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
                   src={banners.find(b => b.position === 'sub1')?.image_url} 
                   className="card-img h-100 object-fit-cover" 
                   alt="Sub Banner 1" 
-                  style={{ height: '174px' }} 
+                  style={{ height: '130px', width: '100%', objectFit: 'cover' }} 
                 />
               ) : (
-                <div className="card-img h-100 d-flex align-items-center justify-content-center bg-light" style={{ height: '174px' }}>
+                <div className="card-img h-100 d-flex align-items-center justify-content-center bg-light" style={{ height: '130px' }}>
                   <i className="bi bi-image fs-1 text-muted"></i>
                 </div>
               )}
@@ -473,10 +508,10 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
                   src={banners.find(b => b.position === 'sub2')?.image_url} 
                   className="card-img h-100 object-fit-cover" 
                   alt="Sub Banner 2" 
-                  style={{ height: '174px' }}
+                  style={{ height: '130px', width: '100%', objectFit: 'cover' }}
                 />
               ) : (
-                <div className="card-img h-100 d-flex align-items-center justify-content-center bg-light" style={{ height: '174px' }}>
+                <div className="card-img h-100 d-flex align-items-center justify-content-center bg-light" style={{ height: '130px' }}>
                   <i className="bi bi-image fs-1 text-muted"></i>
                 </div>
               )}
@@ -505,9 +540,9 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
         <div className="row g-4 mb-5" id="products-section">
           {/* Cột bên trái: Bộ lọc Sidebar */}
           <div className="col-lg-3">
-            <div className="card border-0 rounded-4 shadow-sm p-4 bg-white sticky-top" style={{ top: '80px', zIndex: 10 }}>
+            <div className="card border-0 rounded-4 shadow-sm p-4 bg-white sticky-top" style={{ top: '80px', zIndex: 1 }}>
               <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom">
-                <h5 className="fw-bold fs-6 m-0 text-gray-800 d-flex align-items-center gap-2">
+                <h5 className="fw-bold fs-6 m-0 text-gray-800 d-flex align-items-center gap-2" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>
                   <i className="bi bi-funnel text-danger"></i> Bộ lọc tìm kiếm
                 </h5>
                 <button 
@@ -622,53 +657,147 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
         </div>
         <FlashSale products={allProducts} countdown={countdown} />
 
-        {/* Sản phẩm nổi bật / Sản phẩm Hot (Áp dụng UI mới) */}
+        {/* Sản phẩm nổi bật / Sản phẩm Hot (Áp dụng UI Flash Sale) */}
         <section className="mb-5 mt-5">
-          <h2 className="fs-4 fw-bold mb-4 d-flex align-items-center gap-2">
-            <i className="bi bi-fire text-brand-red"></i> Sản phẩm nổi bật
-          </h2>
-          <div className="position-relative">
-            <button
-              className="btn btn-light position-absolute top-50 start-0 translate-middle-y z-2 rounded-circle shadow-sm border"
-              style={{ width: '36px', height: '36px', padding: 0, marginLeft: '-18px' }}
-              onClick={prevFeaturedSlide}
-              disabled={featuredTotalSlides <= 1}
-            >
-              <i className="bi bi-chevron-left text-secondary"></i>
-            </button>
-
-            <div className="row row-cols-2 row-cols-md-4 g-4">
-              {getFeaturedProducts().map(product => (
-                <div className="col" key={product._id}>
-                  <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column bg-white">
-                    <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
-                      {product.image_url ? (
-                        <img src={product.image_url} className="card-img-top rounded-3 object-fit-contain mb-3" height="180" alt={product.name} />
-                      ) : (
-                        <div className="card-img-top rounded-3 mb-3 d-flex align-items-center justify-content-center bg-light" style={{ height: '180px' }}>
-                          <i className="bi bi-image fs-1 text-muted"></i>
-                        </div>
-                      )}
-                      <h6 className="fw-semibold text-truncate">{product.name}</h6>
-                      <div className="text-brand-red fw-bold fs-5 mb-3">{formatVND(product.price)}</div>
-                    </Link>
-                    <button className="btn btn-light border w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red transition" onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}>
-                      Thêm vào giỏ
-                    </button>
-                  </div>
+          <div className="featured-products-container p-4 p-md-5 shadow-lg position-relative" style={{ 
+            background: 'linear-gradient(135deg, #ff6b35 0%, #f7931e 100%)',
+            borderRadius: '16px'
+          }}>
+            
+            {/* Tiêu đề & Icon */}
+            <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+              <div className="d-flex align-items-center gap-3">
+                <div className="bg-white text-warning rounded-3 d-flex align-items-center justify-content-center shadow-sm" style={{ width: '48px', height: '48px' }}>
+                  <i className="bi bi-fire fs-3"></i>
                 </div>
-              ))}
+                <div className="text-white">
+                  <h2 className="fs-3 fw-bold fst-italic mb-0" style={{ letterSpacing: '0.5px' }}>SẢN PHẨM NỔI BẬT</h2>
+                  <div className="opacity-75 small">Sản phẩm bán chạy nhất tuần qua</div>
+                </div>
+              </div>
+              
+              <div className="d-flex gap-2 text-white">
+                <div className="bg-white bg-opacity-20 rounded-3 px-4 py-2 text-center" style={{ minWidth: '80px' }}>
+                  <div className="fs-5 fw-bold">{allProducts.length}</div>
+                  <div style={{ fontSize: '0.65rem', fontWeight: 'bold' }}>SẢN PHẨM</div>
+                </div>
+              </div>
             </div>
 
-            <button
-              className="btn btn-light position-absolute top-50 end-0 translate-middle-y z-2 rounded-circle shadow-sm border"
-              style={{ width: '36px', height: '36px', padding: 0, marginRight: '-18px' }}
-              onClick={nextFeaturedSlide}
-              disabled={featuredTotalSlides <= 1}
-            >
-              <i className="bi bi-chevron-right text-secondary"></i>
-            </button>
+            <div className="position-relative">
+              {/* Carousel Navigation Buttons */}
+              {featuredTotalPages > 1 && (
+                <>
+                  <button
+                    className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-flex align-items-center justify-content-center hover-lift carousel-nav-btn"
+                    style={{ left: '-20px', width: '40px', height: '40px', padding: 0 }}
+                    onClick={() => handleFeaturedPageChange(featuredIndex)}
+                    disabled={featuredIndex === 0 || featuredIsAnimating}
+                  >
+                    <i className="bi bi-chevron-left text-secondary"></i>
+                  </button>
+                  <button
+                    className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-flex align-items-center justify-content-center hover-lift carousel-nav-btn"
+                    style={{ right: '-20px', width: '40px', height: '40px', padding: 0 }}
+                    onClick={() => handleFeaturedPageChange(featuredIndex + 2)}
+                    disabled={featuredIndex === featuredTotalPages - 1 || featuredIsAnimating}
+                  >
+                    <i className="bi bi-chevron-right text-secondary"></i>
+                  </button>
+                </>
+              )}
+
+              <div className="carousel-container overflow-hidden">
+                <div className={`row row-cols-2 row-cols-md-4 g-3 carousel-slide ${featuredCarouselDirection ? `slide-${featuredCarouselDirection}` : ''}`}>
+                  {getFeaturedProducts().map(product => (
+                    <div className="col" key={product._id}>
+                      <div className="card card-product p-3 h-100 d-flex flex-column bg-white">
+                        <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1 d-flex flex-column">
+                          
+                          <div className="position-relative mb-3">
+                            {product.image_url ? (
+                              <img
+                                src={product.image_url}
+                                className="w-100 rounded-3"
+                                style={{ height: '150px', width: '100%', objectFit: 'contain' }}
+                                alt={product.name}
+                              />
+                            ) : (
+                              <div className="w-100 rounded-3 d-flex align-items-center justify-content-center bg-light" style={{ height: '150px' }}>
+                                <i className="bi bi-image fs-1 text-muted"></i>
+                              </div>
+                            )}
+                            <span className="badge bg-warning position-absolute top-0 start-0 m-2 px-2 py-1 shadow-sm">
+                              HOT
+                            </span>
+                          </div>
+
+                          <h6 className="fw-bold text-truncate mb-2">{product.name}</h6>
+                          <div className="text-warning fw-bold fs-5 lh-1 mb-1">{formatVND(product.price)}</div>
+                          
+                          <div className="mt-auto">
+                            <div className="progress mb-2" style={{ height: '4px', backgroundColor: '#e9ecef' }}>
+                              <div className="progress-bar bg-warning" role="progressbar" style={{ width: '70%' }}></div>
+                            </div>
+                            <div className="text-center text-muted fw-bold mb-3" style={{ fontSize: '0.65rem' }}>
+                              ĐANG HOT
+                            </div>
+                          </div>
+                        </Link>
+
+                        <button
+                          className="btn btn-dark w-100 py-2 mt-auto"
+                          onClick={(e) => { e.preventDefault(); handleAddToCart(product); }}
+                        >
+                          Thêm vào giỏ
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
           </div>
+
+          {/* Phân trang Sản phẩm nổi bật */}
+          {featuredTotalPages > 1 && (
+            <nav aria-label="Featured products pagination" className="mt-4">
+              <ul className="pagination justify-content-center">
+                <li className={`page-item ${featuredIndex === 0 ? 'disabled' : ''}`}>
+                  <button className="page-link px-3 py-2 rounded-start-3" onClick={() => handleFeaturedPageChange(featuredIndex)}>
+                    Trước
+                  </button>
+                </li>
+                {(() => {
+                  const maxVisiblePages = 5;
+                  let startPage = Math.max(1, featuredIndex + 1 - Math.floor(maxVisiblePages / 2));
+                  let endPage = Math.min(featuredTotalPages, startPage + maxVisiblePages - 1);
+                  
+                  if (endPage - startPage + 1 < maxVisiblePages) {
+                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                  }
+                  
+                  const pages = [];
+                  for (let i = startPage; i <= endPage; i++) {
+                    pages.push(i);
+                  }
+                  
+                  return pages.map((page) => (
+                    <li key={page} className={`page-item ${featuredIndex === page - 1 ? 'active' : ''}`}>
+                      <button className="page-link px-3 py-2" onClick={() => handleFeaturedPageChange(page)}>
+                        {page}
+                      </button>
+                    </li>
+                  ));
+                })()}
+                <li className={`page-item ${featuredIndex === featuredTotalPages - 1 ? 'disabled' : ''}`}>
+                  <button className="page-link px-3 py-2 rounded-end-3" onClick={() => handleFeaturedPageChange(featuredIndex + 2)}>
+                    Sau
+                  </button>
+                </li>
+              </ul>
+            </nav>
+          )}
         </section>
 
         {/* Đánh giá khách hàng */}
@@ -750,6 +879,27 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
           </div>
         </div>
       </div>
+
+      {/* Back to Top Button */}
+      {showBackToTop && (
+        <button
+          className="btn btn-danger position-fixed rounded-circle shadow-lg"
+          onClick={scrollToTop}
+          style={{
+            bottom: '30px',
+            left: '30px',
+            width: '50px',
+            height: '50px',
+            zIndex: 999,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            transition: 'opacity 0.3s ease-in-out'
+          }}
+        >
+          <i className="bi bi-arrow-up fs-4"></i>
+        </button>
+      )}
 
       {/* Chatbot Popup */}
       <ChatbotPopup />

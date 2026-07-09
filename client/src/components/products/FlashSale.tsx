@@ -15,8 +15,10 @@ interface FlashSaleProps {
 export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [currentIndex, setCurrentIndex] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(4);
+  const [carouselDirection, setCarouselDirection] = useState<'left' | 'right' | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   const { addItem } = useCartStore();
   const { isLoggedIn } = useAuthStore();
   const { addToCartContext, user } = useCart();
@@ -37,18 +39,28 @@ export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => 
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const totalSlides = Math.ceil(products.length / itemsPerPage);
+  const totalPages = Math.ceil(products.length / itemsPerPage);
 
-  const nextSlide = () => {
-    setCurrentIndex((prev) => (prev + 1) % totalSlides);
-  };
-
-  const prevSlide = () => {
-    setCurrentIndex((prev) => (prev - 1 + totalSlides) % totalSlides);
+  const handlePageChange = (page: number) => {
+    if (page > 0 && page <= totalPages && !isAnimating) {
+      if (page > currentPage) {
+        setCarouselDirection('right');
+      } else if (page < currentPage) {
+        setCarouselDirection('left');
+      }
+      
+      setIsAnimating(true);
+      setCurrentPage(page);
+      
+      setTimeout(() => {
+        setIsAnimating(false);
+        setCarouselDirection(null);
+      }, 500);
+    }
   };
 
   const getCurrentProducts = () => {
-    const start = currentIndex * itemsPerPage;
+    const start = (currentPage - 1) * itemsPerPage;
     return products.slice(start, start + itemsPerPage);
   };
 
@@ -117,74 +129,125 @@ export const FlashSale: React.FC<FlashSaleProps> = ({ products, countdown }) => 
 
           {/* Lưới sản phẩm Flash Sale */}
           <div className="position-relative">
-            <button
-              className="btn btn-light position-absolute top-50 start-0 translate-middle-y z-2 rounded-circle shadow-sm border"
-              style={{ width: '36px', height: '36px', padding: 0, marginLeft: '-18px' }}
-              onClick={prevSlide}
-              disabled={totalSlides <= 1}
-            >
-              <i className="bi bi-chevron-left text-secondary"></i>
-            </button>
+            {/* Carousel Navigation Buttons */}
+            {totalPages > 1 && (
+              <>
+                <button
+                  className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-flex align-items-center justify-content-center hover-lift carousel-nav-btn"
+                  style={{ left: '-20px', width: '40px', height: '40px', padding: 0 }}
+                  onClick={() => handlePageChange(currentPage - 1)}
+                  disabled={currentPage === 1 || isAnimating}
+                >
+                  <i className="bi bi-chevron-left text-secondary"></i>
+                </button>
+                <button
+                  className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-flex align-items-center justify-content-center hover-lift carousel-nav-btn"
+                  style={{ right: '-20px', width: '40px', height: '40px', padding: 0 }}
+                  onClick={() => handlePageChange(currentPage + 1)}
+                  disabled={currentPage === totalPages || isAnimating}
+                >
+                  <i className="bi bi-chevron-right text-secondary"></i>
+                </button>
+              </>
+            )}
 
-            <div className="row row-cols-2 row-cols-md-4 g-3">
-              {getCurrentProducts().map((product) => (
-                <div className="col" key={product._id}>
-                  <div className="card card-product p-3 h-100 d-flex flex-column bg-white">
-                    <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1 d-flex flex-column">
+            <div className="carousel-container overflow-hidden">
+              <div className={`row row-cols-2 row-cols-md-4 g-3 carousel-slide ${carouselDirection ? `slide-${carouselDirection}` : ''}`}>
+                {getCurrentProducts().map((product) => (
+                  <div className="col" key={product._id}>
+                    <div className="card card-product p-3 h-100 d-flex flex-column bg-white">
+                      <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1 d-flex flex-column">
 
-                      <div className="position-relative mb-3">
-                        {product.image_url ? (
-                          <img
-                            src={product.image_url}
-                            className="w-100 rounded-3"
-                            style={{ height: '150px', objectFit: 'contain' }}
-                            alt={product.name}
-                          />
-                        ) : (
-                          <div className="w-100 rounded-3 d-flex align-items-center justify-content-center bg-light" style={{ height: '150px' }}>
-                            <i className="bi bi-image fs-1 text-muted"></i>
+                        <div className="position-relative mb-3">
+                          {product.image_url ? (
+                            <img
+                              src={product.image_url}
+                              className="w-100 rounded-3"
+                              style={{ height: '150px', width: '100%', objectFit: 'contain' }}
+                              alt={product.name}
+                            />
+                          ) : (
+                            <div className="w-100 rounded-3 d-flex align-items-center justify-content-center bg-light" style={{ height: '150px' }}>
+                              <i className="bi bi-image fs-1 text-muted"></i>
+                            </div>
+                          )}
+                          <span className="badge bg-danger position-absolute top-0 start-0 m-2 px-2 py-1 shadow-sm">
+                            -15%
+                          </span>
+                        </div>
+
+                        <h6 className="fw-bold text-truncate mb-2">{product.name}</h6>
+                        <div className="text-danger fw-bold fs-5 lh-1 mb-1">{product.price.toLocaleString()}đ</div>
+                        <div className="text-muted text-decoration-line-through mb-3" style={{ fontSize: '0.75rem' }}>
+                          {(product.price * 1.15).toLocaleString()}đ
+                        </div>
+
+                        <div className="mt-auto">
+                          <div className="progress mb-2" style={{ height: '4px', backgroundColor: '#e9ecef' }}>
+                            <div className="progress-bar bg-danger" role="progressbar" style={{ width: '85%' }}></div>
                           </div>
-                        )}
-                        <span className="badge bg-danger position-absolute top-0 start-0 m-2 px-2 py-1 shadow-sm">
-                          -15%
-                        </span>
-                      </div>
-
-                      <h6 className="fw-bold text-truncate mb-2">{product.name}</h6>
-                      <div className="text-danger fw-bold fs-5 lh-1 mb-1">{product.price.toLocaleString()}đ</div>
-                      <div className="text-muted text-decoration-line-through mb-3" style={{ fontSize: '0.75rem' }}>
-                        {(product.price * 1.15).toLocaleString()}đ
-                      </div>
-
-                      <div className="mt-auto">
-                        <div className="progress mb-2" style={{ height: '4px', backgroundColor: '#e9ecef' }}>
-                          <div className="progress-bar bg-danger" role="progressbar" style={{ width: '85%' }}></div>
+                          <div className="text-center text-muted fw-bold mb-3" style={{ fontSize: '0.65rem' }}>
+                            ĐÃ BÁN 85%
+                          </div>
                         </div>
-                        <div className="text-center text-muted fw-bold mb-3" style={{ fontSize: '0.65rem' }}>
-                          ĐÃ BÁN 85%
-                        </div>
-                      </div>
-                    </Link>
+                      </Link>
 
-                    <button
-                      className="btn btn-buy-dark w-100 py-2 mt-auto"
-                      onClick={(e) => handleAddToCart(e, product)}
-                    >
-                      Mua ngay
-                    </button>
+                      <button
+                        className="btn btn-buy-dark w-100 py-2 mt-auto"
+                        onClick={(e) => handleAddToCart(e, product)}
+                      >
+                        Mua ngay
+                      </button>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
 
-            <button
-              className="btn btn-light position-absolute top-50 end-0 translate-middle-y z-2 rounded-circle shadow-sm border"
-              style={{ width: '36px', height: '36px', padding: 0, marginRight: '-18px' }}
-              onClick={nextSlide}
-              disabled={totalSlides <= 1}
-            >
-              <i className="bi bi-chevron-right text-secondary"></i>
-            </button>
+              {/* Pagination inside carousel */}
+              {totalPages > 1 && (
+                <div className="d-flex justify-content-center align-items-center mt-4 gap-2">
+                  <button
+                    className="btn btn-sm btn-outline-light rounded-3"
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1 || isAnimating}
+                  >
+                    <i className="bi bi-chevron-left"></i>
+                  </button>
+                  {(() => {
+                    const maxVisiblePages = 5;
+                    let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                    let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                    
+                    if (endPage - startPage + 1 < maxVisiblePages) {
+                      startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                    }
+                    
+                    const pages = [];
+                    for (let i = startPage; i <= endPage; i++) {
+                      pages.push(i);
+                    }
+                    
+                    return pages.map((page) => (
+                      <button
+                        key={page}
+                        className={`btn btn-sm rounded-3 ${currentPage === page ? 'btn-light text-danger' : 'btn-outline-light'}`}
+                        onClick={() => handlePageChange(page)}
+                        disabled={isAnimating}
+                      >
+                        {page}
+                      </button>
+                    ));
+                  })()}
+                  <button
+                    className="btn btn-sm btn-outline-light rounded-3"
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages || isAnimating}
+                  >
+                    <i className="bi bi-chevron-right"></i>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
         </div>

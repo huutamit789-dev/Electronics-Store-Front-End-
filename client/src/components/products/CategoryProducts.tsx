@@ -61,6 +61,10 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({
   const [totalPages, setTotalPages] = useState(1);
   const [totalProducts, setTotalProducts] = useState(0);
   const productsPerPage = 12; // 12 sản phẩm trên 1 trang cho cân đối 3 hoặc 4 cột
+  
+  // Carousel states
+  const [carouselDirection, setCarouselDirection] = useState<'left' | 'right' | null>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   /**
    * @function fetchProductsByFilters
@@ -173,12 +177,27 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({
 
   /**
    * @function handlePageChange
-   * @description Modifies the current pagination index and scrolls to top of products list.
+   * @description Modifies the current pagination index with carousel animation and scrolls to top of products list.
    * @param {number} page - Targeted page index.
    */
   const handlePageChange = (page: number) => {
-    if (page > 0 && page <= totalPages) {
+    if (page > 0 && page <= totalPages && !isAnimating) {
+      // Set carousel direction based on page change
+      if (page > currentPage) {
+        setCarouselDirection('right');
+      } else if (page < currentPage) {
+        setCarouselDirection('left');
+      }
+      
+      setIsAnimating(true);
       setCurrentPage(page);
+      
+      // Reset animation state after transition with smoother timing
+      setTimeout(() => {
+        setIsAnimating(false);
+        setCarouselDirection(null);
+      }, 500);
+      
       const productsSection = document.getElementById('products-section');
       if (productsSection) {
         productsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -231,66 +250,112 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({
           <div className="alert alert-danger shadow-sm rounded-3">{error}</div>
         ) : (
           <>
-            <div className="row row-cols-2 row-cols-md-3 g-3">
-              {products.length > 0 ? (
-                products.map(product => (
-                  <div className="col" key={product._id}>
-                    <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column bg-white">
-                      <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
-                        <img
-                          src={product.image_url}
-                          className="card-img-top rounded-3 object-fit-contain mb-3"
-                          alt={product.name}
-                          style={{ height: '170px' }}
-                          onError={handleImageError}
-                        />
-                        <h6 className="fw-semibold text-truncate text-gray-900 mb-1" style={{ fontSize: '0.9rem' }}>
-                          {product.name}
-                        </h6>
-                        <div className="text-brand-red fw-bold fs-6 mb-3">{product.price.toLocaleString()}đ</div>
-                      </Link>
-                      <button
-                        className="btn btn-light border w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red transition"
-                        onClick={(e) => handleAddToCart(e, product)}
-                        style={{ fontSize: '0.85rem' }}
-                      >
-                        Thêm vào giỏ
-                      </button>
-                    </div>
-                  </div>
-                ))
-              ) : (
-                <div className="col-12 text-center py-5">
-                  <i className="bi bi-search fs-1 text-muted mb-3 d-block"></i>
-                  <p className="text-muted">Không tìm thấy sản phẩm nào khớp với bộ lọc.</p>
-                </div>
+            <div className="position-relative">
+              {/* Carousel Navigation Buttons */}
+              {totalPages > 1 && (
+                <>
+                  <button
+                    className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-flex align-items-center justify-content-center hover-lift carousel-nav-btn"
+                    style={{ left: '-20px', width: '40px', height: '40px', padding: 0 }}
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1 || isAnimating}
+                  >
+                    <i className="bi bi-chevron-left text-secondary"></i>
+                  </button>
+                  <button
+                    className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-flex align-items-center justify-content-center hover-lift carousel-nav-btn"
+                    style={{ right: '-20px', width: '40px', height: '40px', padding: 0 }}
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage === totalPages || isAnimating}
+                  >
+                    <i className="bi bi-chevron-right text-secondary"></i>
+                  </button>
+                </>
               )}
-            </div>
 
-            {/* Điều hướng phân trang */}
-            {totalPages > 1 && (
-              <nav aria-label="Product pagination" className="mt-5">
-                <ul className="pagination justify-content-center">
-                  <li className={`page-item ${currentPage === 1 ? 'disabled' : ''}`}>
-                    <button className="page-link px-3 py-2 rounded-start-3" onClick={() => handlePageChange(currentPage - 1)}>
-                       Trước
+              <div className={`carousel-container overflow-hidden`}>
+                <div className={`row row-cols-2 row-cols-md-3 g-3 carousel-slide ${carouselDirection ? `slide-${carouselDirection}` : ''}`}>
+                  {products.length > 0 ? (
+                    products.map(product => (
+                      <div className="col" key={product._id}>
+                        <div className="card h-100 border border-light shadow-sm hover-lift p-3 rounded-4 img-zoom-container d-flex flex-column bg-white">
+                          <Link to={`/product/${product._id}`} className="text-decoration-none text-dark flex-grow-1">
+                            <img
+                              src={product.image_url}
+                              className="card-img-top rounded-3 object-fit-contain mb-3"
+                              alt={product.name}
+                              style={{ height: '170px', width: '100%', objectFit: 'contain' }}
+                              onError={handleImageError}
+                            />
+                            <h6 className="fw-semibold text-truncate text-gray-900 mb-1" style={{ fontSize: '0.9rem' }}>
+                              {product.name}
+                            </h6>
+                            <div className="text-brand-red fw-bold fs-6 mb-3">{product.price.toLocaleString()}đ</div>
+                          </Link>
+                          <button
+                            className="btn btn-light border w-100 rounded-3 fw-bold mt-auto text-dark hover-brand-red transition"
+                            onClick={(e) => handleAddToCart(e, product)}
+                            style={{ fontSize: '0.85rem' }}
+                          >
+                            Thêm vào giỏ
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="col-12 text-center py-5">
+                      <i className="bi bi-search fs-1 text-muted mb-3 d-block"></i>
+                      <p className="text-muted">Không tìm thấy sản phẩm nào khớp với bộ lọc.</p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pagination inside carousel */}
+                {totalPages > 1 && (
+                  <div className="d-flex justify-content-center align-items-center mt-4 gap-2">
+                    <button
+                      className="btn btn-sm btn-outline-secondary rounded-3"
+                      onClick={() => handlePageChange(currentPage - 1)}
+                      disabled={currentPage === 1 || isAnimating}
+                    >
+                      <i className="bi bi-chevron-left"></i>
                     </button>
-                  </li>
-                  {[...Array(totalPages)].map((_, index) => (
-                    <li key={index} className={`page-item ${currentPage === index + 1 ? 'active' : ''}`}>
-                      <button className="page-link px-3 py-2" onClick={() => handlePageChange(index + 1)}>
-                        {index + 1}
-                      </button>
-                    </li>
-                  ))}
-                  <li className={`page-item ${currentPage === totalPages ? 'disabled' : ''}`}>
-                    <button className="page-link px-3 py-2 rounded-end-3" onClick={() => handlePageChange(currentPage + 1)}>
-                      Sau 
+                    {(() => {
+                      const maxVisiblePages = 5;
+                      let startPage = Math.max(1, currentPage - Math.floor(maxVisiblePages / 2));
+                      let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+                      
+                      if (endPage - startPage + 1 < maxVisiblePages) {
+                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                      }
+                      
+                      const pages = [];
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+                      
+                      return pages.map((page) => (
+                        <button
+                          key={page}
+                          className={`btn btn-sm rounded-3 ${currentPage === page ? 'btn-danger' : 'btn-outline-secondary'}`}
+                          onClick={() => handlePageChange(page)}
+                          disabled={isAnimating}
+                        >
+                          {page}
+                        </button>
+                      ));
+                    })()}
+                    <button
+                      className="btn btn-sm btn-outline-secondary rounded-3"
+                      onClick={() => handlePageChange(currentPage + 1)}
+                      disabled={currentPage === totalPages || isAnimating}
+                    >
+                      <i className="bi bi-chevron-right"></i>
                     </button>
-                  </li>
-                </ul>
-              </nav>
-            )}
+                  </div>
+                )}
+              </div>
+            </div>
           </>
         )}
       </div>

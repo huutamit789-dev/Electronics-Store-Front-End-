@@ -105,7 +105,8 @@ export const ChatbotPopup: React.FC = () => {
                 height: '24px', 
                 fontSize: '12px',
                 transform: 'translate(-25%, -25%)',
-                animation: 'bounce-badge 2s infinite'
+                animation: 'bounce-badge 2s infinite',
+                zIndex: 10
               }}
             >
                 1

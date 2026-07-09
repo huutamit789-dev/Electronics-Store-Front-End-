@@ -140,11 +140,47 @@
 }
 
 /* Kích thước mặc định (Desktop) để ghi đè các inline-style cũ */
-.hero-main-img { min-height: 380px; }
-.hero-sub-img { height: 180px; }
+.hero-main-img { min-height: 280px; }
+.hero-sub-img { height: 130px; }
 .product-img { height: 160px; object-fit: contain; }
 .price-text { font-size: 1.25rem; font-weight: bold; color: #d70018; }
 .old-price-text { font-size: 0.75rem; color: #6c757d; text-decoration: line-through; }
+
+/* =========================================
+   6. PHÂN TRANG HỖ TRỢ CUỘN NGANG
+========================================= */
+.pagination {
+  overflow-x: auto;
+  white-space: nowrap;
+  max-width: 100%;
+  position: relative;
+  z-index: 1;
+}
+.pagination::-webkit-scrollbar {
+  height: 4px;
+}
+.pagination::-webkit-scrollbar-thumb {
+  background-color: #dee2e6;
+  border-radius: 4px;
+}
+.pagination::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+/* =========================================
+   7. FIX HÌNH ẢNH GIẬT KHI HOVER
+========================================= */
+.img-zoom-container {
+  will-change: transform;
+}
+.card {
+  will-change: transform;
+}
+
+/* Thêm margin-bottom cho section có hover-lift để tránh giật */
+.hover-lift {
+  margin-bottom: 10px;
+}
 
 
 
