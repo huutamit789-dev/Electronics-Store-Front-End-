@@ -71,17 +71,12 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   // Lấy user từ token khi component mount hoặc khi isLoggedIn thay đổi
   useEffect(() => {
-    console.log('=== CartProvider useEffect called ===');
-    console.log('isLoggedIn:', isLoggedIn);
-
     // Check auth state from localStorage
     checkAuth();
 
     const token = localStorage.getItem('token');
-    console.log('Token from localStorage:', token);
 
     if (!token) {
-      console.log('No token found');
       setUser(null);
       setLoadingCart(false);
       return;
@@ -89,10 +84,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
     try {
       const decodedToken: any = jwtDecode(token);
-      console.log('Decoded token:', decodedToken);
 
       if (decodedToken.exp * 1000 < Date.now()) {
-        console.log('Token expired');
         localStorage.removeItem('token');
         setUser(null);
         setLoadingCart(false);
@@ -104,10 +97,8 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         username: decodedToken.username,
         role: decodedToken.role,
       };
-      console.log('Setting user:', authUser);
       setUser(authUser);
     } catch (e) {
-      console.error('Failed to decode token', e);
       setUser(null);
     } finally {
       setLoadingCart(false);
@@ -116,23 +107,18 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   // Hàm để lấy giỏ hàng từ API
   const fetchCart = async (userId: string) => {
-    console.log('=== fetchCart called ===');
-    console.log('UserId:', userId);
     setLoadingCart(true);
     setErrorCart(null);
     try {
       // Đã sửa: Truyền userId dưới dạng path parameter
       const response = await axiosClient.get(`${API_BASE_URL}/cart/${userId}`);
-      console.log("dữ liệu cart response:", response.data)
       if (response.data.success) {
         setCart(response.data.data);
       } else {
-        console.log("Fetch cart failed:", response.data.message);
         setErrorCart(response.data.message || 'Failed to fetch cart');
         setCart(null);
       }
     } catch (err: any) {
-      console.error('Error fetching cart:', err);
       setErrorCart(err.response?.data?.message || 'Failed to fetch cart');
       setCart(null);
     } finally {
@@ -148,8 +134,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
       const localItems = JSON.parse(stored) as any[];
       if (!Array.isArray(localItems) || localItems.length === 0) return;
 
-      console.log('Merging local cart into backend for user:', userId, localItems);
-
       // iterate sequentially to avoid overwhelming backend and to preserve order
       for (const li of localItems) {
         const prodId = li.productId || li.product_id || (li._id && li._id.productId) || null;
@@ -159,55 +143,44 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         try {
           await addToCartContext(userId, prodId, qty, price);
         } catch (e) {
-          console.warn('Failed to add local item to backend cart', e);
+          // Silent fail on individual items
         }
       }
 
       // Clear local storage cart after merging
       localStorage.removeItem('cartItems');
     } catch (e) {
-      console.error('Error merging local cart into backend:', e);
+      // Silent fail on merge error
     }
   };
 
   // Hàm thêm sản phẩm vào giỏ hàng qua API và cập nhật context
   const addToCartContext = async (userId: string, productId: string, quantity: number, price: number): Promise<boolean> => {
-    console.log('=== addToCartContext called ===');
-    console.log('Params:', { userId, productId, quantity, price });
     try {
       // 1. Check product stock first
       const productResponse = await axiosClient.get(`${API_BASE_URL}/products/${productId}`);
-      const product = productResponse.data.data; // Assuming data structure is { success: true, data: productObject }
-      console.log('Product data:', product);
+      const product = productResponse.data.data;
 
       if (!product || product.stock_quantity <= 0) {
-        console.log('Product out of stock or not found');
         setErrorCart('Sản phẩm đã hết hàng hoặc không tồn tại.');
         return false;
       }
 
       // 2. If in stock, proceed to add to cart
-      console.log('Sending to backend:', { user_id: userId, product_id: productId, quantity, price }); // Log the data
       const response = await axiosClient.post(`${API_BASE_URL}/cart/add`, {
         user_id: userId,
         product_id: productId,
         quantity: quantity,
         price: price,
       });
-      console.log('Add to cart response:', response.data);
       if (response.data.success) {
-        console.log('Add to cart successful, fetching cart...');
-        await fetchCart(userId); // Re-fetch cart after successful add
-        console.log('Cart after fetch:', cart);
+        await fetchCart(userId);
         return true;
       } else {
-        console.log('Add to cart failed:', response.data.message);
         setErrorCart(response.data.message || 'Failed to add to cart');
         return false;
       }
     } catch (err: any) {
-      console.error('Error adding to cart:', err);
-      console.error('Server error response:', err.response?.data); // Log the full server error response
       setErrorCart(err.response?.data?.message || 'Failed to add to cart');
       return false;
     }
@@ -252,7 +225,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         return false;
       }
     } catch (err: any) {
-      console.error('Error updating cart item quantity:', err);
       setErrorCart(err.response?.data?.message || 'Failed to update cart item quantity');
       return false;
     }
@@ -270,7 +242,6 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
         return false;
       }
     } catch (err: any) {
-      console.error('Error clearing cart:', err);
       setErrorCart(err.response?.data?.message || 'Failed to clear cart');
       return false;
     }
@@ -279,17 +250,13 @@ export const CartProvider: React.FC<CartProviderProps> = ({ children }) => {
 
   // Fetch cart when user changes or on component mount
   useEffect(() => {
-    console.log('=== Fetch cart useEffect called ===');
-    console.log('User:', user);
     if (user?._id) {
-      console.log('Fetching cart for user:', user._id);
       // First merge any local cart (from non-logged sessions) into backend
       (async () => {
         await mergeLocalCartIntoBackend(user._id);
         await fetchCart(user._id);
       })();
     } else {
-      console.log('No user, clearing cart');
       setCart(null); // Clear cart if no user
       setLoadingCart(false);
     }

@@ -151,14 +151,6 @@ export const AdminLayout: React.FC<AdminLayoutProps> = () => {
           </Link>
         </li>
 
-        {/* Nav Item - Component */}
-        <li className="nav-item">
-          <Link className="nav-link" to="/admin/components">
-            <i className="fas fa-fw fa-puzzle-piece"></i> {/* Icon cho Component */}
-            <span>Component</span>
-          </Link>
-        </li>
-
         {/* Nav Item - Đơn hàng */}
         <li className="nav-item">
           <Link className="nav-link" to="/admin/orders">

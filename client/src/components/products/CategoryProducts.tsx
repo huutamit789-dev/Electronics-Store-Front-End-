@@ -8,6 +8,7 @@ import { useCart } from '@/contexts/CartContext';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
 import '@/index.css';
+import { logger } from '@/lib/logger';
 
 // Import local images as fallback for placeholders
 import iphone1 from '@/assets/images/iphone-17-pro-max-3.webp';
@@ -109,8 +110,15 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({
         params.storage = storage;
       }
 
+      logger.logApiCall('GET', '/products/search', params);
+
       const response = await productService.searchProducts(params);
       const fetchedProducts = response.data.products ?? [];
+
+      logger.success('PRODUCTS FETCHED', {
+        action: 'fetch_products',
+        details: { count: fetchedProducts.length, params }
+      });
 
       // Dự phòng ảnh nếu link trong database chứa từ khóa placeholder
       const productsWithLocalImages = fetchedProducts.map((product: Product, index: number) => ({
@@ -123,8 +131,6 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({
       setProducts(productsWithLocalImages);
       setTotalPages(response.data.totalPages || 1);
       setTotalProducts(response.data.total || 0);
-
-      console.log('CategoryProducts - Lấy thành công:', fetchedProducts.length, 'sản phẩm');
     } catch (err) {
       setError('Không thể tải danh sách sản phẩm phù hợp.');
       console.error('CategoryProducts - Lỗi khi fetch sản phẩm:', err);
@@ -151,12 +157,28 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({
    */
   const handleAddToCart = (e: React.MouseEvent, product: Product) => {
     e.preventDefault();
+    
+    logger.logAddToCart(product._id, product.name, 1);
+    
     if (!isLoggedIn) {
+      logger.info('LOGIN REQUIRED FOR CART', {
+        action: 'login_required',
+        details: { productId: product._id }
+      });
       handleShowLoginModal();
       return;
     }
+    
     if (isLoggedIn && user?._id) {
-      addToCartContext(user._id, product._id, 1, product.price).then(ok => { if (ok) setShowCartToast(true); });
+      addToCartContext(user._id, product._id, 1, product.price).then(ok => { 
+        if (ok) {
+          logger.success('CART UPDATE SUCCESS', {
+            action: 'cart_update',
+            details: { userId: user._id, productId: product._id }
+          });
+          setShowCartToast(true); 
+        }
+      });
     } else {
       addItem({
         productId: product._id,
@@ -165,6 +187,10 @@ export const CategoryProducts: React.FC<CategoryProductsProps> = ({
         quantity: 1,
         image_url: product.image_url || '',
         stock_quantity: product.stock_quantity
+      });
+      logger.success('LOCAL CART UPDATE', {
+        action: 'local_cart_update',
+        details: { productId: product._id }
       });
       setShowCartToast(true);
     }

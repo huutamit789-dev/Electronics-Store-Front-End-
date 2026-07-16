@@ -19,6 +19,7 @@ import { jwtDecode } from 'jwt-decode';
 import toast from 'react-hot-toast';
 import { couponService } from '@/features/coupons/services/couponService';
 import { formatVND } from '@/lib/formatters';
+import { footerService } from '@/features/footers/services/footerService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8091/api';
 
@@ -47,6 +48,7 @@ export const CartPage: React.FC = () => {
   const [couponInput, setCouponInput] = useState('');
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
+  const [footer, setFooter] = useState<any>(null);
 
   // Mảng sản phẩm hiển thị tùy thuộc vào trạng thái đăng nhập
   const displayItems = isLoggedIn && cart?.items ? cart.items.map(ci => ({
@@ -76,7 +78,7 @@ export const CartPage: React.FC = () => {
       } else {
         newDiscount = appliedCoupon.discount_value;
       }
-      
+
       // Không được giảm giá âm hoặc lớn hơn tổng tiền đơn hàng
       if (newDiscount > displayTotal) {
         newDiscount = displayTotal;
@@ -85,6 +87,20 @@ export const CartPage: React.FC = () => {
       setDiscountAmount(newDiscount);
     }
   }, [displayTotal, appliedCoupon]);
+
+  useEffect(() => {
+    const fetchFooter = async () => {
+      try {
+        const response = await footerService.getActiveFooter();
+        if (response.success && response.data) {
+          setFooter(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch footer:', error);
+      }
+    };
+    fetchFooter();
+  }, []);
 
   /**
    * @function handleUpdateQuantity
@@ -524,21 +540,41 @@ export const CartPage: React.FC = () => {
         <div className="container">
           <div className="row g-4">
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-5">ElectroStore</h4>
-              <p className="text-secondary small">Hệ thống bán lẻ thiết bị công nghệ chính hãng hàng đầu Việt Nam.</p>
+              <h4 className="fw-bold mb-3 fs-5">{footer?.company_name || 'ElectroStore'}</h4>
+              <p className="text-secondary small">{footer?.company_description}</p>
             </div>
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-6">Chính sách</h4>
+              <h4 className="fw-bold mb-3 fs-6">{footer?.policy_title || 'Chính sách'}</h4>
               <ul className="list-unstyled text-secondary small">
-                <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Bảo hành</Link></li>
-                <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Đổi trả</Link></li>
+                {footer?.policies && footer.policies.length > 0 ? (
+                  footer.policies.map((policy: any, index: number) => (
+                    <li key={index} className="mb-2">
+                      <Link to={policy.link} className="text-decoration-none text-secondary">{policy.title}</Link>
+                    </li>
+                  ))
+                ) : (
+                  <>
+                    <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Bảo hành</Link></li>
+                    <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Đổi trả</Link></li>
+                  </>
+                )}
               </ul>
             </div>
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-6">Liên hệ</h4>
+              <h4 className="fw-bold mb-3 fs-6">{footer?.contact_title || 'Liên hệ'}</h4>
               <ul className="list-unstyled text-secondary small">
-                <li className="mb-2"><i className="bi bi-telephone me-2"></i> Hotline: 1900 xxxx</li>
-                <li className="mb-2"><i className="bi bi-envelope me-2"></i> CSKH: cskh@electrostore.com</li>
+                {footer?.contacts && footer.contacts.length > 0 ? (
+                  footer.contacts.map((contact: any, index: number) => (
+                    <li key={index} className="mb-2">
+                      <i className={`bi ${contact.icon} me-2`}></i> {contact.text}
+                    </li>
+                  ))
+                ) : (
+                  <>
+                    <li className="mb-2"><i className="bi bi-telephone me-2"></i> Hotline: 1900 xxxx</li>
+                    <li className="mb-2"><i className="bi bi-envelope me-2"></i> CSKH: cskh@electrostore.com</li>
+                  </>
+                )}
               </ul>
             </div>
           </div>

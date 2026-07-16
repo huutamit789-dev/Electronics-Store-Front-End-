@@ -587,3 +587,84 @@ code {
     font-size: 0.75rem !important;
   }
 }
+
+/* Carousel Animation Styles */
+.carousel-container {
+  position: relative;
+  overflow: hidden;
+}
+
+.carousel-slide {
+  transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out;
+}
+
+.carousel-slide.slide-left {
+  animation: slideInLeft 0.3s ease-in-out;
+}
+
+.carousel-slide.slide-right {
+  animation: slideInRight 0.3s ease-in-out;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(30px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+.carousel-fade {
+  animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Carousel Navigation Buttons */
+.carousel-nav-btn {
+  background: white !important;
+  border: 2px solid #dee2e6 !important;
+  transition: all 0.3s ease !important;
+  opacity: 0.9;
+}
+
+.carousel-nav-btn:hover:not(:disabled) {
+  background: #d70018 !important;
+  border-color: #d70018 !important;
+  transform: scale(1.1);
+  opacity: 1;
+}
+
+.carousel-nav-btn:hover:not(:disabled) i {
+  color: white !important;
+}
+
+.carousel-nav-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.carousel-nav-btn i {
+  transition: color 0.3s ease;
+}

@@ -19,6 +19,7 @@ import { useCartStore } from '@/store/useCartStore';
 import { useCart } from '@/contexts/CartContext';
 import { CartItem } from '@/types/order';
 import { formatVND } from '@/lib/formatters';
+import { logger } from '@/lib/logger';
 import '@/assets/UserHomePage.css';
 // Import local images
 import iphone1 from '@/assets/images/iphone-17-pro-max-3.webp';
@@ -69,7 +70,8 @@ export const UserHomePage: React.FC = () => {
   const [ram, setRam] = useState<string>('all');
   const [storage, setStorage] = useState<string>('all');
   const [sortBy, setSortBy] = useState<string>('newest');
-  const [featuredIndex, setFeaturedIndex] = useState(0);
+  const [featuredCurrentPage, setFeaturedCurrentPage] = useState(1);
+  const [featuredItemsPerPage, setFeaturedItemsPerPage] = useState(4);
   const [featuredCarouselDirection, setFeaturedCarouselDirection] = useState<'left' | 'right' | null>(null);
   const [featuredIsAnimating, setFeaturedIsAnimating] = useState(false);
   const [showBackToTop, setShowBackToTop] = useState(false);
@@ -81,6 +83,23 @@ export const UserHomePage: React.FC = () => {
     }, 400);
     return () => clearTimeout(handler);
   }, [searchQuery]);
+
+  // Responsive itemsPerPage cho featured products
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setFeaturedItemsPerPage(2);
+      } else if (window.innerWidth < 992) {
+        setFeaturedItemsPerPage(3);
+      } else {
+        setFeaturedItemsPerPage(4);
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Show/hide back to top button on scroll
   useEffect(() => {
@@ -117,20 +136,18 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   };
 
   // Pagination for featured products
-  const featuredItemsPerPage = 8;
   const featuredTotalPages = Math.ceil(allProducts.length / featuredItemsPerPage);
 
   const handleFeaturedPageChange = (page: number) => {
     if (page > 0 && page <= featuredTotalPages && !featuredIsAnimating) {
-      const newFeaturedIndex = page - 1;
-      if (newFeaturedIndex > featuredIndex) {
+      if (page > featuredCurrentPage) {
         setFeaturedCarouselDirection('right');
-      } else if (newFeaturedIndex < featuredIndex) {
+      } else if (page < featuredCurrentPage) {
         setFeaturedCarouselDirection('left');
       }
       
       setFeaturedIsAnimating(true);
-      setFeaturedIndex(newFeaturedIndex);
+      setFeaturedCurrentPage(page);
       
       setTimeout(() => {
         setFeaturedIsAnimating(false);
@@ -140,13 +157,13 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   };
 
   const getFeaturedProducts = () => {
-    const start = featuredIndex * featuredItemsPerPage;
+    const start = (featuredCurrentPage - 1) * featuredItemsPerPage;
     return allProducts.slice(start, start + featuredItemsPerPage);
   };
   // fetchProducts đã được chuyển vào trong component CategoryProducts để tối ưu hóa truy vấn
   const fetchAllProducts = useCallback(async () => {
     try {
-      const allProductsResponse = await productService.getAllProducts(1, 100);
+      const allProductsResponse = await productService.getAllProducts(1, 12);
       const allFetchedProducts = allProductsResponse.data.products ?? [];
       const allProductsWithLocalImages = allFetchedProducts.map((product, index) => ({
         ...product,
@@ -217,12 +234,18 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
   }, []);
 
   const fetchFooter = useCallback(async () => {
+    logger.logApiCall('GET', '/footers/active');
     try {
       const footerResponse = await footerService.getActiveFooter();
       if (footerResponse.success) {
+        logger.success('FOOTER FETCHED', {
+          action: 'fetch_footer',
+          details: { hasData: !!footerResponse.data }
+        });
         setFooter(footerResponse.data);
       }
     } catch (err) {
+      logger.logApiError('GET', '/footers/active', err);
       console.error('Failed to fetch footer:', err);
     }
   }, []);
@@ -664,7 +687,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
             borderRadius: '16px'
           }}>
             
-            {/* Tiêu đề & Icon */}
+            {/* Tiêu đề & Đồng hồ đếm ngược */}
             <div className="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
               <div className="d-flex align-items-center gap-3">
                 <div className="bg-white text-warning rounded-3 d-flex align-items-center justify-content-center shadow-sm" style={{ width: '48px', height: '48px' }}>
@@ -675,11 +698,19 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
                   <div className="opacity-75 small">Sản phẩm bán chạy nhất tuần qua</div>
                 </div>
               </div>
-              
-              <div className="d-flex gap-2 text-white">
-                <div className="bg-white bg-opacity-20 rounded-3 px-4 py-2 text-center" style={{ minWidth: '80px' }}>
-                  <div className="fs-5 fw-bold">{allProducts.length}</div>
-                  <div style={{ fontSize: '0.65rem', fontWeight: 'bold' }}>SẢN PHẨM</div>
+
+              <div className="d-flex gap-2 text-white font-monospace">
+                <div className="timer-box">
+                  <span className="fs-5 fw-bold lh-1 mb-1">{countdown?.hours || '02'}</span>
+                  <span style={{ fontSize: '0.55rem', fontWeight: 'bold' }}>GIỜ</span>
+                </div>
+                <div className="timer-box">
+                  <span className="fs-5 fw-bold lh-1 mb-1">{countdown?.minutes || '45'}</span>
+                  <span style={{ fontSize: '0.55rem', fontWeight: 'bold' }}>PHÚT</span>
+                </div>
+                <div className="timer-box">
+                  <span className="fs-5 fw-bold lh-1 mb-1">{countdown?.seconds || '12'}</span>
+                  <span style={{ fontSize: '0.55rem', fontWeight: 'bold' }}>GIÂY</span>
                 </div>
               </div>
             </div>
@@ -691,16 +722,16 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
                   <button
                     className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-flex align-items-center justify-content-center hover-lift carousel-nav-btn"
                     style={{ left: '-20px', width: '40px', height: '40px', padding: 0 }}
-                    onClick={() => handleFeaturedPageChange(featuredIndex)}
-                    disabled={featuredIndex === 0 || featuredIsAnimating}
+                    onClick={() => handleFeaturedPageChange(featuredCurrentPage - 1)}
+                    disabled={featuredCurrentPage === 1 || featuredIsAnimating}
                   >
                     <i className="bi bi-chevron-left text-secondary"></i>
                   </button>
                   <button
                     className="btn btn-white position-absolute top-50 translate-middle-y z-2 rounded-circle shadow-sm border d-flex align-items-center justify-content-center hover-lift carousel-nav-btn"
                     style={{ right: '-20px', width: '40px', height: '40px', padding: 0 }}
-                    onClick={() => handleFeaturedPageChange(featuredIndex + 2)}
-                    disabled={featuredIndex === featuredTotalPages - 1 || featuredIsAnimating}
+                    onClick={() => handleFeaturedPageChange(featuredCurrentPage + 1)}
+                    disabled={featuredCurrentPage === featuredTotalPages || featuredIsAnimating}
                   >
                     <i className="bi bi-chevron-right text-secondary"></i>
                   </button>
@@ -755,49 +786,54 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
                     </div>
                   ))}
                 </div>
+
+                {/* Pagination inside carousel */}
+                {featuredTotalPages > 1 && (
+                  <div className="d-flex justify-content-center align-items-center mt-4 gap-2">
+                    <button
+                      className="btn btn-sm btn-outline-light rounded-3"
+                      onClick={() => handleFeaturedPageChange(featuredCurrentPage - 1)}
+                      disabled={featuredCurrentPage === 1 || featuredIsAnimating}
+                    >
+                      <i className="bi bi-chevron-left"></i>
+                    </button>
+                    {(() => {
+                      const maxVisiblePages = 5;
+                      let startPage = Math.max(1, featuredCurrentPage - Math.floor(maxVisiblePages / 2));
+                      let endPage = Math.min(featuredTotalPages, startPage + maxVisiblePages - 1);
+                      
+                      if (endPage - startPage + 1 < maxVisiblePages) {
+                        startPage = Math.max(1, endPage - maxVisiblePages + 1);
+                      }
+                      
+                      const pages = [];
+                      for (let i = startPage; i <= endPage; i++) {
+                        pages.push(i);
+                      }
+                      
+                      return pages.map((page) => (
+                        <button
+                          key={page}
+                          className={`btn btn-sm rounded-3 ${featuredCurrentPage === page ? 'btn-light text-warning' : 'btn-outline-light'}`}
+                          onClick={() => handleFeaturedPageChange(page)}
+                          disabled={featuredIsAnimating}
+                        >
+                          {page}
+                        </button>
+                      ));
+                    })()}
+                    <button
+                      className="btn btn-sm btn-outline-light rounded-3"
+                      onClick={() => handleFeaturedPageChange(featuredCurrentPage + 1)}
+                      disabled={featuredCurrentPage === featuredTotalPages || featuredIsAnimating}
+                    >
+                      <i className="bi bi-chevron-right"></i>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-
-          {/* Phân trang Sản phẩm nổi bật */}
-          {featuredTotalPages > 1 && (
-            <nav aria-label="Featured products pagination" className="mt-4">
-              <ul className="pagination justify-content-center">
-                <li className={`page-item ${featuredIndex === 0 ? 'disabled' : ''}`}>
-                  <button className="page-link px-3 py-2 rounded-start-3" onClick={() => handleFeaturedPageChange(featuredIndex)}>
-                    Trước
-                  </button>
-                </li>
-                {(() => {
-                  const maxVisiblePages = 5;
-                  let startPage = Math.max(1, featuredIndex + 1 - Math.floor(maxVisiblePages / 2));
-                  let endPage = Math.min(featuredTotalPages, startPage + maxVisiblePages - 1);
-                  
-                  if (endPage - startPage + 1 < maxVisiblePages) {
-                    startPage = Math.max(1, endPage - maxVisiblePages + 1);
-                  }
-                  
-                  const pages = [];
-                  for (let i = startPage; i <= endPage; i++) {
-                    pages.push(i);
-                  }
-                  
-                  return pages.map((page) => (
-                    <li key={page} className={`page-item ${featuredIndex === page - 1 ? 'active' : ''}`}>
-                      <button className="page-link px-3 py-2" onClick={() => handleFeaturedPageChange(page)}>
-                        {page}
-                      </button>
-                    </li>
-                  ));
-                })()}
-                <li className={`page-item ${featuredIndex === featuredTotalPages - 1 ? 'disabled' : ''}`}>
-                  <button className="page-link px-3 py-2 rounded-end-3" onClick={() => handleFeaturedPageChange(featuredIndex + 2)}>
-                    Sau
-                  </button>
-                </li>
-              </ul>
-            </nav>
-          )}
         </section>
 
         {/* Đánh giá khách hàng */}
@@ -810,7 +846,7 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
           <div className="row g-4">
             <div className="col-md-4">
               <h4 className="fw-bold mb-3 fs-5">{footer?.company_name || 'ElectroStore'}</h4>
-              <p className="text-secondary small">{footer?.company_description || 'Hệ thống bán lẻ thiết bị công nghệ chính hãng hàng đầu Việt Nam.'}</p>
+              <p className="text-secondary small">{footer?.company_description}</p>
             </div>
             <div className="col-md-4">
               <h4 className="fw-bold mb-3 fs-6">{footer?.policy_title || 'Chính sách'}</h4>

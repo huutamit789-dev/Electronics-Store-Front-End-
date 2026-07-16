@@ -12,6 +12,7 @@ import { useCartStore } from '@/store/useCartStore';
 import axios from 'axios';
 import '@/assets/UserHomePage.css';
 import { formatVNDFull } from '@/lib/formatters';
+import { footerService } from '@/features/footers/services/footerService';
 
 interface OrderItem {
   product_id: {
@@ -60,6 +61,7 @@ export const MyOrdersPage: React.FC = () => {
   const { logout } = useLogout();
   const { getCountUniqueItems } = useCartStore();
   const { cart } = useCart();
+  const [footer, setFooter] = useState<any>(null);
 
   useEffect(() => {
     if (!isLoggedIn || !user) {
@@ -69,6 +71,21 @@ export const MyOrdersPage: React.FC = () => {
 
     fetchOrders();
   }, [isLoggedIn, user, navigate]);
+
+  useEffect(() => {
+    const fetchFooter = async () => {
+      try {
+        const response = await footerService.getActiveFooter();
+        if (response.success && response.data) {
+          console.log("dữ liệu footer",response.data);
+          setFooter(response.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch footer:', error);
+      }
+    };
+    fetchFooter();
+  }, []);
 
   const scrollCategories = (direction: 'left' | 'right') => {
     if (categoryScrollRef.current) {
@@ -372,21 +389,41 @@ export const MyOrdersPage: React.FC = () => {
         <div className="container">
           <div className="row g-4">
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-5">ElectroStore</h4>
-              <p className="text-secondary small">Hệ thống bán lẻ thiết bị công nghệ chính hãng hàng đầu Việt Nam.</p>
+              <h4 className="fw-bold mb-3 fs-5">{footer?.company_name || 'ElectroStore'}</h4>
+              <p className="text-secondary small">{footer?.company_description}</p>
             </div>
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-6">Chính sách</h4>
+              <h4 className="fw-bold mb-3 fs-6">{footer?.policy_title || 'Chính sách'}</h4>
               <ul className="list-unstyled text-secondary small">
-                <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Bảo hành</Link></li>
-                <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Đổi trả</Link></li>
+                {footer?.policies && footer.policies.length > 0 ? (
+                  footer.policies.map((policy: any, index: number) => (
+                    <li key={index} className="mb-2">
+                      <Link to={policy.link} className="text-decoration-none text-secondary">{policy.title}</Link>
+                    </li>
+                  ))
+                ) : (
+                  <>
+                    <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Bảo hành</Link></li>
+                    <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Đổi trả</Link></li>
+                  </>
+                )}
               </ul>
             </div>
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-6">Liên hệ</h4>
+              <h4 className="fw-bold mb-3 fs-6">{footer?.contact_title || 'Liên hệ'}</h4>
               <ul className="list-unstyled text-secondary small">
-                <li className="mb-2"><i className="bi bi-telephone me-2"></i> Hotline: 1900 xxxx</li>
-                <li className="mb-2"><i className="bi bi-envelope me-2"></i> CSKH: cskh@electrostore.com</li>
+                {footer?.contacts && footer.contacts.length > 0 ? (
+                  footer.contacts.map((contact: any, index: number) => (
+                    <li key={index} className="mb-2">
+                      <i className={`bi ${contact.icon} me-2`}></i> {contact.text}
+                    </li>
+                  ))
+                ) : (
+                  <>
+                    <li className="mb-2"><i className="bi bi-telephone me-2"></i> Hotline: 1900 xxxx</li>
+                    <li className="mb-2"><i className="bi bi-envelope me-2"></i> CSKH: cskh@electrostore.com</li>
+                  </>
+                )}
               </ul>
             </div>
           </div>

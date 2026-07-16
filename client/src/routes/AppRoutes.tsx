@@ -17,7 +17,6 @@ import { OrderHistoryPage } from '@/pages/Admin/OrderHistoryPage';
 import { AdminBannerPage } from '@/pages/Admin/AdminBannerPage';
 import { AdminFooterPage } from '@/pages/Admin/AdminFooterPage';
 import { CouponManagementPage } from '@/pages/Admin/CouponManagementPage';
-import { AdminComponentPage } from '@/pages/Admin/AdminComponentPage';
 import { AdminLayout } from '@/components/layout/Admin/AdminLayout';
 import { AdminProtectedRoute } from '@/components/layout/Admin/AdminProtectedRoute';
 
@@ -52,7 +51,6 @@ export const AppRoutes = () => {
                 <Route path="payments" element={<PaymentManagementPage />} />
                 <Route path="order-history" element={<OrderHistoryPage />} />
                 <Route path="coupons" element={<CouponManagementPage />} />
-                <Route path="components" element={<AdminComponentPage />} />
             </Route>
         </Routes>
     );
