@@ -135,12 +135,15 @@ export const OrderManagementPage: React.FC = () => {
 
   const handleDeleteOrder = async () => {
     try {
+      console.log('Deleting order:', currentOrder._id);
       const token = localStorage.getItem('token');
-      await axiosClient.delete(`${API_BASE_URL}/orders/${currentOrder._id}`, {
+      console.log('Token:', token ? 'exists' : 'missing');
+      await axiosClient.delete(`/orders/${currentOrder._id}`, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
+      console.log('Delete successful');
       setIsDeleteModalOpen(false);
       fetchOrders(currentPage, ordersPerPage); // Cập nhật lại danh sách sau khi xóa
       toast.success('Xóa đơn hàng thành công!'); // Thông báo thành công bằng toast
@@ -224,9 +227,8 @@ export const OrderManagementPage: React.FC = () => {
             <table className="table table-bordered" id="dataTable" width="100%" cellSpacing="0">
               <thead>
                 <tr>
-                  <th>ID Đơn hàng</th>
-                  <th>ID Người dùng</th>
-                  <th>Tổng tiền</th>
+                  <th>Tên người dùng</th>
+                  <th>Tên đơn hàng</th>
                   <th>Trạng thái</th>
                   <th>Ngày đặt</th>
                   <th>Hành động</th>
@@ -235,11 +237,13 @@ export const OrderManagementPage: React.FC = () => {
               <tbody>
                 {filteredOrders.map((order) => (
                   <tr key={order._id}>
-                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{order._id}</span></td>
-                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>
+                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '150px' }}>
                       {typeof order.user_id === 'object' ? order.user_id.username : order.user_id}
                     </span></td>
-                    <td>{order.total_price?.toLocaleString() || 0} VNĐ</td>
+                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '200px' }}>
+                      {order.items?.[0]?.product_id?.name || `Đơn hàng #${order._id.slice(-6)}`}
+                      {order.items?.length > 1 && ` (+${order.items.length - 1})`}
+                    </span></td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(order.status)}`}>
                         {order.status.toUpperCase()}

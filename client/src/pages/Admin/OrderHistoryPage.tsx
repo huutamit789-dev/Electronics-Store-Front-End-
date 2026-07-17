@@ -7,7 +7,11 @@ interface OrderHistoryItem {
   _id: string;
   order_id: {
     _id: string;
-    user_id: string;
+    user_id?: {
+      _id: string;
+      username: string;
+      email: string;
+    };
     items: { product_id: { name: string }; quantity: number; price: number }[];
     total_price: number;
     status: string;
@@ -112,7 +116,7 @@ export const OrderHistoryPage: React.FC = () => {
                 <tr>
                   <th>ID Lịch sử</th>
                   <th>ID Đơn hàng</th>
-                  <th>ID Người dùng</th>
+                  <th>Tên người dùng</th>
                   <th>Trạng thái cũ</th>
                   <th>Trạng thái mới</th>
                   <th>Thời gian thay đổi</th>
@@ -124,7 +128,9 @@ export const OrderHistoryPage: React.FC = () => {
                   <tr key={history._id}>
                     <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{history._id}</span></td>
                     <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{history.order_id?._id || 'N/A'}</span></td>
-                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '100px' }}>{history.order_id?.user_id || 'N/A'}</span></td>
+                    <td><span className="d-inline-block text-truncate" style={{ maxWidth: '150px' }}>
+                      {typeof history.order_id?.user_id === 'object' ? history.order_id.user_id?.username : history.order_id?.user_id || 'N/A'}
+                    </span></td>
                     <td>
                       <span className={`badge ${getStatusBadgeClass(history.old_status)}`}>
                         {history.old_status?.toUpperCase() || 'N/A'}

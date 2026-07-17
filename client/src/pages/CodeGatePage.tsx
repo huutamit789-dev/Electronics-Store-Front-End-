@@ -54,9 +54,9 @@ export const CodeGatePage: React.FC = () => {
         </form>
 
         <div className="d-flex justify-content-center gap-4 mt-4">
-          <a href="#" className="text-muted text-decoration-none small">Trợ giúp</a>
-          <a href="#" className="text-muted text-decoration-none small">Quên mã?</a>
-          {/* <a href="#" className="text-muted text-decoration-none small">Đăng ký</a> */}
+          <a href="#" className="text-muted text-decoration-none small fw-bold">Mã Truy cập</a>
+          <a href="#" className="text-muted text-decoration-none small fw-bold">09022000</a>
+        
         </div>
       </div>
     </div>

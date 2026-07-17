@@ -10,8 +10,9 @@ interface Payment {
   user_id: any;  // Có thể là string ID hoặc object User
   amount: number;
   payment_method: string;
-  status: 'pending' | 'completed' | 'failed';
+  payment_status: 'pending' | 'paid' | 'failed' | 'refunded';
   transaction_id?: string;
+  paid_at?: string;
   created_at: string;
 }
 
@@ -49,7 +50,7 @@ export const PaymentManagementPage: React.FC = () => {
     user_id: '',
     amount: 0,
     payment_method: '',
-    status: 'pending',
+    payment_status: 'pending',
     transaction_id: '',
     created_at: ''
   });
@@ -83,11 +84,12 @@ export const PaymentManagementPage: React.FC = () => {
     }
   };
 
-  const getStatusBadgeClass = (status: Payment['status']) => {
+  const getStatusBadgeClass = (status: Payment['payment_status']) => {
     switch (status) {
       case 'pending': return 'bg-secondary';
-      case 'completed': return 'bg-success';
+      case 'paid': return 'bg-success';
       case 'failed': return 'bg-danger';
+      case 'refunded': return 'bg-warning';
       default: return 'bg-secondary';
     }
   };
@@ -105,7 +107,7 @@ export const PaymentManagementPage: React.FC = () => {
       orderId?.toLowerCase().includes(keyword) ||
       userId?.toLowerCase().includes(keyword) ||
       payment.payment_method?.toLowerCase().includes(keyword) ||
-      payment.status?.toLowerCase().includes(keyword)
+      payment.payment_status?.toLowerCase().includes(keyword)
     );
   });
 
@@ -183,11 +185,11 @@ export const PaymentManagementPage: React.FC = () => {
                     <td>{(payment.amount ?? 0).toLocaleString()} VNĐ</td>
                     <td>{payment.payment_method}</td>
                     <td>
-                      <span className={`badge ${getStatusBadgeClass(payment.status)}`}>
-                        {(payment.status ?? 'N/A').toUpperCase()}
+                      <span className={`badge ${getStatusBadgeClass(payment.payment_status)}`}>
+                        {(payment.payment_status ?? 'N/A').toUpperCase()}
                       </span>
                     </td>
-                    <td>{new Date(payment.created_at).toLocaleString()}</td>
+                    <td>{new Date(payment.paid_at || payment.created_at).toLocaleString()}</td>
                     <td>
                       <button type="button" className="btn btn-info btn-sm" onClick={() => handleViewPayment(payment._id)}>
                         <i className="fas fa-eye"></i> Xem
@@ -239,7 +241,7 @@ export const PaymentManagementPage: React.FC = () => {
               <p><strong>ID Người dùng:</strong> {typeof currentPayment.user_id === 'object' ? (currentPayment.user_id?.username || currentPayment.user_id?._id) : currentPayment.user_id}</p>
               <p><strong>Số tiền:</strong> {(currentPayment.amount ?? 0).toLocaleString()} VNĐ</p>
               <p><strong>Phương thức:</strong> {currentPayment.payment_method}</p>
-              <p><strong>Trạng thái:</strong> {(currentPayment.status ?? 'N/A').toUpperCase()}</p>
+              <p><strong>Trạng thái:</strong> {(currentPayment.payment_status ?? 'N/A').toUpperCase()}</p>
               {currentPayment.transaction_id && <p><strong>ID Giao dịch:</strong> {currentPayment.transaction_id}</p>}
               <p><strong>Ngày tạo:</strong> {new Date(currentPayment.created_at).toLocaleString()}</p>
             </div>

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { transactionService, AccountInfo, Transaction } from '@/features/transactions/services/transactionService';
-import { formatVND } from '@/lib/formatters';
+import { formatVND, formatCurrency, parseCurrency } from '@/lib/formatters';
 import { useAuthStore } from '@/store/useAuthStore';
 
 export const AccountPage: React.FC = () => {
@@ -13,7 +13,9 @@ export const AccountPage: React.FC = () => {
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [depositAmount, setDepositAmount] = useState('');
   const [depositDescription, setDepositDescription] = useState('');
+  const [formattedDepositAmount, setFormattedDepositAmount] = useState('');
   const [depositing, setDepositing] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
 
@@ -52,6 +54,15 @@ export const AccountPage: React.FC = () => {
     }
   };
 
+  const handleDepositAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    const numericValue = value.replace(/\./g, '').replace(/,/g, '');
+    if (numericValue === '' || /^\d+$/.test(numericValue)) {
+      setDepositAmount(numericValue);
+      setFormattedDepositAmount(formatCurrency(numericValue));
+    }
+  };
+
   const handleDeposit = async () => {
     const amount = parseFloat(depositAmount);
     if (!amount || amount <= 0) {
@@ -63,12 +74,13 @@ export const AccountPage: React.FC = () => {
     try {
       const response = await transactionService.depositMoney(amount, depositDescription || 'Nạp tiền vào tài khoản');
       if (response.success) {
-        alert('Nạp tiền thành công!');
         setShowDepositModal(false);
         setDepositAmount('');
+        setFormattedDepositAmount('');
         setDepositDescription('');
         loadAccountInfo();
         loadTransactionHistory(1);
+        setShowSuccessModal(true);
       } else {
         alert('Nạp tiền thất bại: ' + response.message);
       }
@@ -367,13 +379,11 @@ export const AccountPage: React.FC = () => {
                     <div className="mb-3">
                       <label className="form-label">Số tiền đã chuyển (VNĐ) <span className="text-danger">*</span></label>
                       <input 
-                        type="number" 
+                        type="text" 
                         className="form-control" 
-                        value={depositAmount}
-                        onChange={(e) => setDepositAmount(e.target.value)}
+                        value={formattedDepositAmount}
+                        onChange={handleDepositAmountChange}
                         placeholder="Nhập số tiền đã chuyển"
-                        min="1000"
-                        step="1000"
                       />
                     </div>
                     <div className="mb-3">
@@ -415,6 +425,30 @@ export const AccountPage: React.FC = () => {
                   ) : (
                     'Xác nhận nạp tiền'
                   )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Success Modal */}
+      {showSuccessModal && (
+        <div className="modal fade show d-block" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content">
+              <div className="modal-body text-center py-5">
+                <div className="mb-4">
+                  <i className="bi bi-check-circle-fill text-success" style={{ fontSize: '4rem' }}></i>
+                </div>
+                <h3 className="mb-3">Nạp tiền thành công!</h3>
+                <p className="text-muted">Yêu cầu nạp tiền của bạn đã được ghi nhận và sẽ được xử lý sớm.</p>
+                <button 
+                  type="button" 
+                  className="btn btn-primary px-5 py-2 mt-3"
+                  onClick={() => setShowSuccessModal(false)}
+                >
+                  OK
                 </button>
               </div>
             </div>

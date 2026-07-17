@@ -96,6 +96,22 @@ export const LoginModal: React.FC<LoginModalProps> = ({ show, onClose, onSwitchT
                     </div>
                   )}
 
+                  {/* Demo Accounts Info */}
+                  <div className="alert alert-info small mb-3">
+                    <div className="fw-bold mb-2">🔐 Tài khoản Demo:</div>
+                    <div className="mb-1">
+                      <span className="badge bg-success me-1">User</span>
+                      <strong>tamlh</strong> / 123456
+                    </div>
+                    <div>
+                      <span className="badge bg-danger me-1">Admin</span>
+                      <strong>tamtam</strong> / 123456
+                    </div>
+                    <div className="mt-2 pt-2 border-top">
+                      <small className="text-muted">💡 Mã cổng đặc biệt: 09022000</small>
+                    </div>
+                  </div>
+
                   <form onSubmit={handleSubmit(onSubmit)}>
                     <div className="mb-3">
                       <label className="form-label text-muted small">Tên người dùng hoặc Email</label>

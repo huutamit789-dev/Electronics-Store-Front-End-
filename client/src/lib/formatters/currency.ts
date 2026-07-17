@@ -4,14 +4,14 @@
  */
 
 /**
- * Format số thành chuỗi tiền tệ với dấu phẩy
+ * Format số thành chuỗi tiền tệ với dấu chấm (chuẩn Việt Nam)
  * @param value - Số cần format (number hoặc string)
- * @returns Chuỗi đã format (ví dụ: "1,234,567")
+ * @returns Chuỗi đã format (ví dụ: "1.234.567")
  */
 export const formatCurrency = (value: number | string): string => {
   if (value === '' || value === null || value === undefined) return '';
   const num = Number(String(value).replace(/[^0-9.-]/g, '')) || 0;
-  return num.toLocaleString('en-US');
+  return num.toLocaleString('vi-VN');
 };
 
 /**
