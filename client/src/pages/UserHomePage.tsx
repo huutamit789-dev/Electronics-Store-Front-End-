@@ -408,6 +408,10 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
             
             {isLoggedIn ? (
               <div className="d-flex align-items-center gap-3">
+                <Link to="/account" className="cursor-pointer hover-lift text-white text-decoration-none">
+                  <i className="bi bi-wallet2 fs-5"></i>
+                  <div style={{ fontSize: '10px', fontWeight: 'bold' }}>Tài khoản</div>
+                </Link>
                 <div className="cursor-pointer hover-lift text-white text-decoration-none">
                   <i className="bi bi-person-check fs-5"></i>
                   <div style={{ fontSize: '10px', fontWeight: 'bold' }}>{user?.username}</div>
@@ -845,41 +849,41 @@ const categoryScrollRef = useRef<HTMLDivElement>(null);
         <div className="container">
           <div className="row g-4">
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-5">{footer?.company_name || 'ElectroStore'}</h4>
-              <p className="text-secondary small">{footer?.company_description}</p>
+              <h4 className="fw-bold mb-3 fs-4">{footer?.company_name || 'ElectroStore'}</h4>
+              <p className="text-light mb-4 fs-6">{footer?.company_description}</p>
             </div>
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-6">{footer?.policy_title || 'Chính sách'}</h4>
-              <ul className="list-unstyled text-secondary small">
+              <h4 className="fw-bold mb-3 fs-5">{footer?.policy_title || 'Chính sách'}</h4>
+              <ul className="list-unstyled">
                 {footer?.policies && footer.policies.length > 0 ? (
                   footer.policies.map((policy, index) => (
-                    <li key={index} className="mb-2">
-                      <Link to={policy.link} className="text-decoration-none text-secondary">{policy.title}</Link>
+                    <li key={index} className="mb-3">
+                      <Link to={policy.link} className="text-decoration-none text-light hover-white transition-colors">{policy.title}</Link>
                     </li>
                   ))
                 ) : (
                   <>
-                    <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Bảo hành</Link></li>
-                    <li className="mb-2"><Link to="#" className="text-decoration-none text-secondary">Đổi trả</Link></li>
+                    <li className="mb-3"><Link to="#" className="text-decoration-none text-light hover-white transition-colors">Bảo hành</Link></li>
+                    <li className="mb-3"><Link to="#" className="text-decoration-none text-light hover-white transition-colors">Đổi trả</Link></li>
                   </>
                 )}
               </ul>
             </div>
             <div className="col-md-4">
-              <h4 className="fw-bold mb-3 fs-6">
+              <h4 className="fw-bold mb-3 fs-5">
                 {footer?.contact_title || 'Liên hệ'}
               </h4>
-              <ul className="list-unstyled text-secondary small">
+              <ul className="list-unstyled">
                 {footer?.contacts && footer.contacts.length > 0 ? (
                   footer.contacts.map((contact, index) => (
-                    <li key={index} className="mb-2">
-                      <i className={`bi ${contact.icon} me-2`}></i> {contact.text}
+                    <li key={index} className="mb-3 fs-6">
+                      <i className={`bi ${contact.icon} me-2 text-warning`}></i> {contact.text}
                     </li>
                   ))
                 ) : (
                   <>
-                    <li className="mb-2"><i className="bi bi-telephone me-2"></i> Hotline: 1900 xxxx</li>
-                    <li className="mb-2"><i className="bi bi-envelope me-2"></i> CSKH: cskh@electrostore.com</li>
+                    <li className="mb-3 fs-6"><i className="bi bi-telephone me-2 text-warning"></i> Hotline: 1900 xxxx</li>
+                    <li className="mb-3 fs-6"><i className="bi bi-envelope me-2 text-warning"></i> CSKH: cskh@electrostore.com</li>
                   </>
                 )}
               </ul>

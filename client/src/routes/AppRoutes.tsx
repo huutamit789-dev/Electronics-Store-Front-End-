@@ -5,6 +5,7 @@ import { UserHomePage } from '@/pages/UserHomePage';
 import { CartPage } from '@/pages/CartPage';
 import { ProductDetailPage } from '@/pages/ProductDetailPage';
 import { MyOrdersPage } from '@/pages/MyOrdersPage';
+import { AccountPage } from '@/pages/AccountPage';
 import { LoginPage } from '@/pages/LoginPage';
 import { ProductManagementPage } from '@/pages/Admin/ProductManagementPage';
 import { AdminDashboardPage } from '@/pages/Admin/AdminDashboardPage';
@@ -30,6 +31,7 @@ export const AppRoutes = () => {
             <Route path="/cart" element={<CartPage />} />
             <Route path="/product/:id" element={<ProductDetailPage />} />
             <Route path="/my-orders" element={<MyOrdersPage />} />
+            <Route path="/account" element={<AccountPage />} />
 
             {/* Admin Routes */}
             <Route path="/admin" element={

@@ -20,6 +20,7 @@ import toast from 'react-hot-toast';
 import { couponService } from '@/features/coupons/services/couponService';
 import { formatVND } from '@/lib/formatters';
 import { footerService } from '@/features/footers/services/footerService';
+import { transactionService } from '@/features/transactions/services/transactionService';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8091/api';
 
@@ -37,7 +38,6 @@ export const CartPage: React.FC = () => {
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [showSuccessToast, setShowSuccessToast] = useState(false);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [warningMessage, setWarningMessage] = useState('');
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -49,6 +49,10 @@ export const CartPage: React.FC = () => {
   const [appliedCoupon, setAppliedCoupon] = useState<any | null>(null);
   const [discountAmount, setDiscountAmount] = useState(0);
   const [footer, setFooter] = useState<any>(null);
+  
+  // States cho phương thức thanh toán
+  const [paymentMethod, setPaymentMethod] = useState<'momo' | 'balance' | 'cod'>('momo');
+  const [accountInfo, setAccountInfo] = useState<any>(null);
 
   // Mảng sản phẩm hiển thị tùy thuộc vào trạng thái đăng nhập
   const displayItems = isLoggedIn && cart?.items ? cart.items.map(ci => ({
@@ -101,6 +105,23 @@ export const CartPage: React.FC = () => {
     };
     fetchFooter();
   }, []);
+
+  // Load account info when logged in
+  useEffect(() => {
+    const loadAccountInfo = async () => {
+      if (isLoggedIn) {
+        try {
+          const response = await transactionService.getAccountInfo();
+          if (response.success) {
+            setAccountInfo(response.data);
+          }
+        } catch (error) {
+          console.error('Failed to load account info:', error);
+        }
+      }
+    };
+    loadAccountInfo();
+  }, [isLoggedIn]);
 
   /**
    * @function handleUpdateQuantity
@@ -210,6 +231,15 @@ export const CartPage: React.FC = () => {
         quantity: item.quantity
       }));
 
+      // Kiểm tra số dư nếu chọn thanh toán bằng tài khoản
+      if (paymentMethod === 'balance') {
+        if (!accountInfo || accountInfo.balance < (displayTotal - discountAmount)) {
+          toast.error('Số dư tài khoản không đủ. Vui lòng nạp thêm tiền hoặc chọn phương thức thanh toán khác.');
+          setIsProcessing(false);
+          return;
+        }
+      }
+
       // Đơn hàng lưu cả giá gốc, mã giảm giá và số tiền được giảm
       const orderData = {
         user_id: userId,
@@ -217,10 +247,23 @@ export const CartPage: React.FC = () => {
         total_price: displayTotal - discountAmount, // Số tiền sau chiết khấu
         original_price: displayTotal, // Số tiền trước chiết khấu
         discount_amount: discountAmount,
-        coupon_code: appliedCoupon ? appliedCoupon.code : null
+        coupon_code: appliedCoupon ? appliedCoupon.code : null,
+        payment_method: paymentMethod
       };
 
       const orderResponse = await cartService.createOrder(orderData);
+      
+      // Nếu thanh toán bằng tài khoản, không cần qua MoMo
+      if (paymentMethod === 'balance') {
+        handleClearCart();
+        toast.success('Thanh toán bằng tài khoản thành công!');
+        setTimeout(() => {
+          navigate('/my-orders');
+        }, 2000);
+        return;
+      }
+
+      // Nếu thanh toán bằng MoMo hoặc COD, tiếp tục luồng hiện tại
       const timestamp = Date.now();
       const orderId = `ORDER-${timestamp}`;
       setCurrentOrderId(orderId);
@@ -272,11 +315,12 @@ export const CartPage: React.FC = () => {
 
       if (success) {
         handleClearCart();
-        setShowSuccessToast(true);
+        toast.success('Thanh toán thành công!');
         setTimeout(() => {
-          setShowSuccessToast(false);
           navigate('/my-orders');
         }, 2000);
+      } else {
+        toast.error('Thanh toán thất bại!');
       }
     } catch (error) {
       console.error('Error testing payment result:', error);
@@ -502,6 +546,48 @@ export const CartPage: React.FC = () => {
                   )}
                 </div>
 
+                {/* Phương thức thanh toán */}
+                <div className="mb-4">
+                  <label className="form-label fw-bold text-secondary small mb-2">Phương thức thanh toán</label>
+                  <div className="d-flex flex-column gap-2">
+                    <div className={`card border ${paymentMethod === 'momo' ? 'border-primary bg-light' : 'border-light-subtle'} cursor-pointer`} onClick={() => setPaymentMethod('momo')}>
+                      <div className="card-body py-2 px-3 d-flex align-items-center gap-2">
+                        <input type="radio" name="paymentMethod" checked={paymentMethod === 'momo'} readOnly />
+                        <i className="bi bi-phone text-danger fs-5"></i>
+                        <div>
+                          <div className="fw-semibold small">MoMo</div>
+                          <div className="text-muted small">Thanh toán qua ví MoMo</div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className={`card border ${paymentMethod === 'balance' ? 'border-primary bg-light' : 'border-light-subtle'} cursor-pointer`} onClick={() => setPaymentMethod('balance')}>
+                      <div className="card-body py-2 px-3 d-flex align-items-center gap-2">
+                        <input type="radio" name="paymentMethod" checked={paymentMethod === 'balance'} readOnly />
+                        <i className="bi bi-wallet2 text-primary fs-5"></i>
+                        <div className="flex-grow-1">
+                          <div className="fw-semibold small">Số dư tài khoản</div>
+                          <div className="text-muted small">Số dư: {formatVND(accountInfo?.balance || 0)}</div>
+                        </div>
+                        {accountInfo && accountInfo.balance < (displayTotal - discountAmount) && (
+                          <span className="badge bg-danger small">Không đủ</span>
+                        )}
+                      </div>
+                    </div>
+                    
+                    <div className={`card border ${paymentMethod === 'cod' ? 'border-primary bg-light' : 'border-light-subtle'} cursor-pointer`} onClick={() => setPaymentMethod('cod')}>
+                      <div className="card-body py-2 px-3 d-flex align-items-center gap-2">
+                        <input type="radio" name="paymentMethod" checked={paymentMethod === 'cod'} readOnly />
+                        <i className="bi bi-cash text-success fs-5"></i>
+                        <div>
+                          <div className="fw-semibold small">Thanh toán khi nhận hàng (COD)</div>
+                          <div className="text-muted small">Trả tiền khi nhận sản phẩm</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Chi tiết hóa đơn */}
                 <div className="d-flex justify-content-between mb-2 small">
                   <span className="text-secondary">Tạm tính:</span>
@@ -642,30 +728,6 @@ export const CartPage: React.FC = () => {
         </div>
       )}
       {paymentResult && <div className="modal-backdrop fade show" style={{ zIndex: 1040 }}></div>}
-
-      {/* Toast Notification */}
-      <div className="toast-container position-fixed bottom-0 end-0 p-3" style={{ zIndex: 1100 }}>
-        <div
-          className={`toast ${showSuccessToast ? 'show' : ''}`}
-          role="alert"
-          aria-live="assertive"
-          aria-atomic="true"
-          style={{ backgroundColor: '#198754' }}
-        >
-          <div className="toast-header text-white">
-            <i className="bi bi-check-circle-fill me-2"></i>
-            <strong className="me-auto">Thành công</strong>
-            <button
-              type="button"
-              className="btn-close btn-close-white"
-              onClick={() => setShowSuccessToast(false)}
-            ></button>
-          </div>
-          <div className="toast-body text-white">
-            Đặt hàng thành công! Đang chuyển đến trang đơn hàng...
-          </div>
-        </div>
-      </div>
     </div>
   );
 };

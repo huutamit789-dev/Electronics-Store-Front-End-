@@ -668,3 +668,45 @@ code {
 .carousel-nav-btn i {
   transition: color 0.3s ease;
 }
+
+/* Footer Hover Effects */
+.hover-white {
+  transition: color 0.3s ease;
+}
+
+.hover-white:hover {
+  color: white !important;
+}
+
+.transition-colors {
+  transition: color 0.3s ease;
+}
+
+/* Footer Responsive */
+@media (max-width: 768px) {
+  footer .fs-4 {
+    font-size: 1.25rem !important;
+  }
+
+  footer .fs-5 {
+    font-size: 1rem !important;
+  }
+
+  footer .fs-6 {
+    font-size: 0.9rem !important;
+  }
+}
+
+@media (max-width: 576px) {
+  footer .fs-4 {
+    font-size: 1.1rem !important;
+  }
+
+  footer .fs-5 {
+    font-size: 0.95rem !important;
+  }
+
+  footer .fs-6 {
+    font-size: 0.85rem !important;
+  }
+}
